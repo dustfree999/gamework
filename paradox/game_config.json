@@ -1,0 +1,5 @@
+{
+  "_comment": "Operational tuning parameters; runtime reads via window.gameConfig",
+  "omegaBase": 1.55,
+  "omegaMax": 2.4
+}

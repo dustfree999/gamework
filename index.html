@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dustfree · Games</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    min-height:100vh; background:#0a0d24; color:#eef2ff;
+    font-family: ui-rounded, 'Segoe UI', system-ui, sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:28px; padding:40px 20px;
+  }
+  h1 { font-size:34px; letter-spacing:6px; font-weight:700; text-shadow:0 0 26px rgba(82,233,255,.4); }
+  p.sub { opacity:.55; font-size:14px; letter-spacing:1px; margin-top:-16px; }
+  .cards { display:flex; flex-direction:column; gap:16px; width:min(420px, 92vw); }
+  a.card {
+    display:block; text-decoration:none; color:inherit;
+    background:rgba(255,255,255,.05); border:1px solid rgba(140,160,255,.18);
+    border-radius:20px; padding:20px 24px;
+    transition:transform .12s ease, border-color .12s ease, background .12s ease;
+  }
+  a.card:active { transform:scale(.97); }
+  a.card:hover { border-color:rgba(110,243,222,.5); background:rgba(255,255,255,.08); }
+  .card b { font-size:22px; letter-spacing:2px; display:block; margin-bottom:4px; }
+  .card span { font-size:13px; opacity:.6; line-height:1.5; display:block; }
+  .tag { display:inline-block; font-size:11px; letter-spacing:1px; padding:2px 10px; border-radius:999px; margin-bottom:8px; }
+  .t1 { background:rgba(110,243,222,.15); color:#6ef3de; }
+  .t2 { background:rgba(82,233,255,.15); color:#52e9ff; }
+  .t3 { background:rgba(201,155,255,.15); color:#c99bff; }
+  footer { font-size:12px; opacity:.35; letter-spacing:1px; }
+</style>
+</head>
+<body>
+  <h1>DUSTFREE · GAMES</h1>
+  <p class="sub">handmade HTML5 mini-games · all art &amp; sound generated in code</p>
+  <div class="cards">
+    <a class="card" href="paradox/">
+      <span class="tag t1">ORIGINAL · ARCADE</span>
+      <b>PARADOX</b>
+      <span>Revolve a dying star and dodge debris — but the real threat is a ghost of your own past replaying every move. Skim past it for PARADOX bonuses.</span>
+    </a>
+    <a class="card" href="comet-dash/">
+      <span class="tag t2">ARCADE · 5 CHAPTERS</span>
+      <b>COMET DASH</b>
+      <span>One-tap flight through five asteroid chapters — drifting gates, serpent pairs, solar wind and gravity wells.</span>
+    </a>
+    <a class="card" href="gem-merge/">
+      <span class="tag t3">PUZZLE · 7 LEVELS</span>
+      <b>GEM FUSION</b>
+      <span>Slide to merge gems and forge each level target under a move budget — frost, stone, prism and time mechanics await.</span>
+    </a>
+  </div>
+  <footer>tap a card to play · works offline once loaded</footer>
+</body>
+</html>

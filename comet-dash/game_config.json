@@ -1,0 +1,4 @@
+{
+  "_comment": "Operational tuning parameters; runtime reads via window.gameConfig",
+  "speedScale": 1.0
+}

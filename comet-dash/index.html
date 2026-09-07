@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d24">
+<meta name="description" content="Comet Dash — a one-tap arcade flyer. Five chapters of belt, each with one new law of physics.">
+<title>Comet Dash</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><radialGradient id="g"><stop offset="0" stop-color="white"/><stop offset="0.4" stop-color="%2352e9ff"/><stop offset="1" stop-color="%2352e9ff00"/></radialGradient><circle cx="32" cy="32" r="28" fill="url(%23g)"/><circle cx="32" cy="32" r="11" fill="white"/></svg>'>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body {
+    position:fixed; inset:0; overflow:hidden;
+    background:#0a0d24; color:#eef2ff;
+    font-family:'Fredoka', ui-rounded, 'Segoe UI', system-ui, sans-serif;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+    overscroll-behavior:none; touch-action:none;
+  }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  .overlay {
+    position:absolute; inset:0; z-index:10;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+    transition:opacity .28s ease;
+  }
+  .overlay.off { opacity:0; pointer-events:none; }
+  .card {
+    background:rgba(13,16,38,.9);
+    border:1px solid rgba(140,160,255,.18);
+    border-radius:26px; padding:30px 36px;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    box-shadow:0 24px 70px rgba(0,0,0,.55);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transition:transform .28s cubic-bezier(.2,1.4,.4,1);
+  }
+  .overlay.off .card { transform:translateY(16px) scale(.95); }
+
+  .logo {
+    font-size:58px; font-weight:700; letter-spacing:3px; line-height:.95; text-align:center;
+    text-shadow:0 0 26px rgba(82,233,255,.55), 0 4px 0 rgba(0,0,0,.3);
+    animation:bob 3.2s ease-in-out infinite;
+  }
+  .logo span { display:block; color:#52e9ff; font-size:38px; letter-spacing:12px; margin-right:-12px; }
+  @keyframes bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+  .tagline { opacity:.7; font-size:15px; letter-spacing:.6px; }
+  .best { color:#ffb454; font-weight:600; letter-spacing:3px; font-size:14px; }
+  .howto { font-size:13px; opacity:.6; letter-spacing:.5px; max-width:300px; text-align:center; line-height:1.55; }
+  .howto em { color:#52e9ff; font-style:normal; font-weight:600; }
+  .sub { font-size:12px; letter-spacing:2.5px; opacity:.65; }
+
+  .btn {
+    font-family:inherit; font-weight:600; font-size:20px; letter-spacing:2px; color:#04122a;
+    background:linear-gradient(180deg,#7df0ff,#2ec5f0);
+    border:none; border-radius:999px; padding:14px 54px; cursor:pointer;
+    box-shadow:0 6px 0 #1181a8, 0 14px 34px rgba(46,197,240,.35);
+    transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .btn:active { transform:translateY(4px); box-shadow:0 2px 0 #1181a8, 0 6px 16px rgba(46,197,240,.3); }
+  .btn.ghost {
+    background:rgba(255,255,255,.08); color:#cfe3ff; box-shadow:none;
+    border:1px solid rgba(255,255,255,.16); font-size:16px; padding:10px 36px; letter-spacing:1.5px;
+  }
+  .btn.ghost:active { transform:scale(.96); }
+
+  .iconbtn {
+    position:absolute; top:max(14px, env(safe-area-inset-top));
+    width:44px; height:44px; border-radius:50%; z-index:20;
+    border:1px solid rgba(255,255,255,.15); background:rgba(10,12,34,.55); color:#dfe8ff;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+  .iconbtn:active { transform:scale(.9); }
+  #muteBtn { right:max(14px, env(safe-area-inset-right)); }
+  #pauseBtn { left:max(14px, env(safe-area-inset-left)); }
+  .pbar { width:4px; height:15px; background:currentColor; border-radius:2px; display:inline-block; margin:0 2.5px; }
+
+  #hud {
+    position:absolute; top:max(22px, env(safe-area-inset-top)); left:0; right:0; z-index:5;
+    text-align:center; font-size:64px; font-weight:700; pointer-events:none;
+    text-shadow:0 0 24px rgba(82,233,255,.5), 0 3px 0 rgba(0,0,0,.35);
+    transition:opacity .2s ease;
+  }
+  #hud.off { opacity:0; }
+  #score { display:inline-block; }
+  #score.pop { animation:pop .18s ease; }
+  @keyframes pop { 0%{transform:scale(1)} 45%{transform:scale(1.4)} 100%{transform:scale(1)} }
+
+  #lvlLine {
+    position:absolute; top:calc(max(22px, env(safe-area-inset-top)) + 74px); left:0; right:0; z-index:5;
+    text-align:center; font-size:12px; letter-spacing:3.5px; color:#ffb454;
+    pointer-events:none; opacity:.85; transition:opacity .2s ease;
+    text-shadow:0 2px 0 rgba(0,0,0,.35);
+  }
+  #lvlLine.off { opacity:0; }
+
+  #banner {
+    position:absolute; left:0; right:0; top:30%; z-index:8; text-align:center;
+    font-weight:600; font-size:22px; letter-spacing:7px; color:#eef2ff;
+    text-shadow:0 0 24px rgba(82,233,255,.6), 0 2px 0 rgba(0,0,0,.4);
+    opacity:0; pointer-events:none;
+  }
+  #banner.show { animation:bannerIn 2s ease forwards; }
+  #banner .rule {
+    display:inline-block; width:30px; height:1px; vertical-align:middle;
+    background:rgba(82,233,255,.65); margin:0 12px;
+  }
+  @keyframes bannerIn {
+    0%   { opacity:0; transform:translateY(12px) scale(.94); letter-spacing:12px; }
+    15%  { opacity:1; transform:none; }
+    72%  { opacity:1; }
+    100% { opacity:0; transform:translateY(-8px); }
+  }
+
+  #hint {
+    position:absolute; left:0; right:0; bottom:26%; z-index:5; text-align:center;
+    font-size:20px; letter-spacing:5px; font-weight:600; color:#bfe9ff;
+    animation:pulse 1.1s ease-in-out infinite; pointer-events:none;
+  }
+  @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+  .hidden { display:none !important; }
+
+  h2 { font-size:26px; letter-spacing:5px; font-weight:600; opacity:.92; }
+  .stats { display:flex; gap:36px; margin:2px 0 4px; }
+  .stats label { display:block; font-size:11px; letter-spacing:3px; opacity:.55; text-align:center; margin-bottom:2px; }
+  .stats b { font-size:42px; font-weight:700; line-height:1; }
+  .ribbon {
+    background:linear-gradient(90deg,#ffd166,#ff8a3d); color:#3a1c00;
+    font-weight:700; letter-spacing:1.5px; padding:6px 18px; border-radius:999px;
+    font-size:13px; box-shadow:0 4px 16px rgba(255,160,60,.45);
+  }
+  .ribbon.hidden { display:none !important; }
+  .credit {
+    position:absolute; bottom:max(18px, env(safe-area-inset-bottom)); left:0; right:0;
+    text-align:center; font-size:12px; letter-spacing:1px; opacity:.4; pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="hud" class="off"><span id="score">0</span></div>
+<div id="lvlLine" class="off"></div>
+<div id="banner"></div>
+<div id="hint" class="hidden">TAP&nbsp; TO&nbsp; FLY</div>
+
+<button id="pauseBtn" class="iconbtn hidden" aria-label="Pause"><span class="pbar"></span><span class="pbar"></span></button>
+<button id="muteBtn" class="iconbtn" aria-label="Toggle sound"></button>
+
+<div id="menu" class="overlay">
+  <div class="logo">COMET<span>DASH</span></div>
+  <div class="tagline">five chapters of belt — one new law each</div>
+  <div class="howto">Tap to fly. Thread the asteroids, skim them for <em>GRAZE</em>
+    bonuses, and clear a chapter to bank it. Drifting rocks, serpentine gate
+    pairs, <em>solar-storm wind</em> and a <em>gravity well</em> await — then
+    survive the Singularity as long as you can.</div>
+  <div class="best" id="menuBest">BEST&nbsp;0</div>
+  <button id="playBtn" class="btn">PLAY</button>
+  <div class="credit">tap anywhere or press SPACE to fly · all art &amp; sound generated in code</div>
+</div>
+
+<div id="paused" class="overlay off">
+  <div class="card">
+    <h2>PAUSED</h2>
+    <div class="howto">tap anywhere to resume</div>
+    <button id="resumeBtn" class="btn">RESUME</button>
+    <button id="quitBtn" class="btn ghost">MENU</button>
+  </div>
+</div>
+
+<div id="clear" class="overlay off">
+  <div class="card">
+    <h2 id="clearTitle">LEVEL 1 CLEARED</h2>
+    <div class="ribbon" id="clearBonus">+100 BONUS</div>
+    <div class="sub" id="clearNext">NEXT — LEVEL 2</div>
+    <div class="howto">tap anywhere to continue</div>
+  </div>
+</div>
+
+<div id="over" class="overlay off">
+  <div class="card">
+    <div id="newBest" class="ribbon hidden">★ NEW BEST ★</div>
+    <h2>GAME OVER</h2>
+    <div class="sub" id="reached">REACHED LEVEL 1 · FIRST LIGHT</div>
+    <div class="stats">
+      <div><label>SCORE</label><b id="finalScore">0</b></div>
+      <div><label>BEST</label><b id="finalBest">0</b></div>
+    </div>
+    <button id="retryBtn" class="btn">TRY AGAIN</button>
+    <button id="menuBtn" class="btn ghost">MENU</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* platform config bootstrap: externalized business params (game_config.json) */
+window.gameConfig = window.gameConfig || {};
+try { fetch('game_config.json').then(function(r){ return r.json(); })
+  .then(function(c){ Object.assign(window.gameConfig, c || {}); document.dispatchEvent(new Event('gameconfig')); })
+  .catch(function(){}); } catch(e) {}
+
+/* ============================================================
+   Comet Dash v2 — one-tap arcade flyer with a 5-level campaign.
+   Chapter 1 static gates · 2 drifting gaps · 3 offset pairs
+   · 4 wind bands · 5 gravity wells (endless remix).
+   Design spec: ../design/game-concept-comet-dash-v2.md
+   Single file. All art drawn procedurally on canvas, SFX
+   synthesized with Web Audio. No third-party assets.
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => v<a?a:v>b?b:v;
+const rand  = (a,b) => a + Math.random()*(b-a);
+const TAU = Math.PI*2;
+
+/* ---------------- canvas / virtual coords (800-unit height) ---------------- */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+const VH = 800;                       // virtual height, width adapts to aspect
+let W=0, H=0, DPR=1, SCALE=1, VW=0;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2.5);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  SCALE = H/VH; VW = W/SCALE;
+  comet.x = clamp(comet.x, 40, VW*.45);
+}
+window.addEventListener('resize', resize);
+
+/* ---------------- synthesized audio ---------------- */
+const Sfx = (() => {
+  let ac=null, master=null;
+  let muted = (function(){ try{ return localStorage.getItem('cd_mute')==='1'; }catch(e){ return false; } })();
+  function ensure(){
+    if(!ac){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      try{
+        ac = new AC();
+        master = ac.createGain(); master.gain.value=.5; master.connect(ac.destination);
+      }catch(e){ return null; }
+    }
+    if(ac.state==='suspended') ac.resume();
+    return ac;
+  }
+  function tone(f0,f1,dur,type='sine',vol=.35,delay=0){
+    if(muted || !ensure()) return;
+    const t = ac.currentTime+delay;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type=type;
+    o.frequency.setValueAtTime(Math.max(f0,1),t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur);
+    g.gain.setValueAtTime(vol,t);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t+dur+.03);
+  }
+  function noise(dur,freq,vol=.3,delay=0){
+    if(muted || !ensure()) return;
+    const t = ac.currentTime+delay;
+    const n = Math.max(1, Math.floor(ac.sampleRate*dur));
+    const buf = ac.createBuffer(1,n,ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
+    const src = ac.createBufferSource(); src.buffer=buf;
+    const f = ac.createBiquadFilter(); f.type='bandpass'; f.frequency.value=freq; f.Q.value=.8;
+    const g = ac.createGain(); g.gain.value=vol;
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t);
+  }
+  return {
+    flap(){ tone(280,540,.12,'sine',.22); noise(.07,1500,.1); },
+    score(){ tone(660,660,.09,'sine',.28); tone(880,880,.14,'sine',.28,.07); tone(1760,1760,.1,'sine',.1,.07); },
+    graze(){ tone(1320,1320,.05,'sine',.12); noise(.06,2600,.06); },
+    hit(){ noise(.24,700,.5); tone(190,50,.32,'triangle',.5); },
+    over(){ tone(440,415,.18,'triangle',.28,0); tone(330,311,.22,'triangle',.28,.17); tone(262,246,.34,'triangle',.28,.36); },
+    click(){ tone(950,700,.06,'sine',.18); },
+    resume(){ tone(650,900,.09,'sine',.18); },
+    whoosh(){ noise(.3,1400,.14); },
+    wellIn(){ tone(120,70,.35,'sine',.14); },
+    level(){ tone(440,440,.1,'sine',.16); tone(554,554,.1,'sine',.16,.08); tone(659,659,.18,'sine',.18,.16); },
+    fanfare(){ tone(440,440,.14,'sine',.22); tone(554,554,.14,'sine',.22,.1); tone(659,659,.28,'sine',.24,.2); tone(880,880,.3,'sine',.14,.3); },
+    unlock(){ ensure(); },
+    get muted(){ return muted; },
+    toggle(){ muted=!muted; try{ localStorage.setItem('cd_mute',muted?'1':'0'); }catch(e){} return muted; }
+  };
+})();
+
+/* ---------------- level table (design §7) ---------------- */
+const LEVELS=[
+  {name:'FIRST LIGHT', at:0,  end:18,        sp:215, ramp:1.6, gap0:252, gapMin:196, gapShrink:5,   spacing:330, drift:0,  driftP:0,   pair:0,   wind:0,   well:0},
+  {name:'DRIFT BELT',  at:18, end:38,        sp:245, ramp:1.8, gap0:244, gapMin:190, gapShrink:5,   spacing:330, drift:46, driftP:.65, pair:0,   wind:0,   well:0},
+  {name:'SERPENT RUN', at:38, end:58,        sp:270, ramp:2.0, gap0:236, gapMin:184, gapShrink:5,   spacing:330, drift:42, driftP:.55, pair:.5,  wind:0,   well:0},
+  {name:'SOLAR STORM', at:58, end:82,        sp:290, ramp:2.0, gap0:228, gapMin:178, gapShrink:5,   spacing:340, drift:40, driftP:.5,  pair:.4,  wind:360, well:0},
+  {name:'SINGULARITY', at:82, end:Infinity,  sp:310, ramp:1.6, gap0:220, gapMin:172, gapShrink:4.5, spacing:345, drift:44, driftP:.55, pair:.4,  wind:420, well:1}
+];
+const GRAV=2200, FLAPV=-620, VMAX=950, CRAD=20;   // comet physics (constant per pillar 1)
+const WELL_K=9e6, WELL_DMIN=130, WELL_RANGE=420, GRAZE_BAND=34;
+
+/* ---------------- game state ---------------- */
+const BEST_KEY='cd_best';
+let best = (function(){ try{ return +(localStorage.getItem(BEST_KEY)||0); }catch(e){ return 0; } })();
+let state = 'menu';        // menu | ready | playing | paused | clear | dying | over
+let t=0;                   // run time (advances only while playing)
+let score=0;
+let level=0, gateOpen=false, clearLock=0, levelGates=0;
+let speed=LEVELS[0].sp;
+let shake=0, hitStop=0, flash=0, dieTimer=0, overLockUntil=0;
+let tNow=0;                // render-time (always advances except paused)
+let windTimer=99, wellTimer=99;
+
+const comet = { x:120, y:400, vy:0, rot:0, squash:0, dead:false };
+const stars=[], nebulae=[], gates=[], parts=[], floats=[], rings=[], winds=[], wells=[];
+const PARTS_MAX=260;
+
+/* ---------------- sky ---------------- */
+function initSky(){
+  stars.length=0;
+  const n = Math.round(VW*VH/8500);
+  for(let i=0;i<n;i++) stars.push({
+    x:rand(0,VW), y:rand(0,VH), r:rand(.6,2.2),
+    f:rand(.12,.5), tw:rand(0,TAU), ts:rand(.6,2.2)
+  });
+  nebulae.length=0;
+  nebulae.push(
+    {x:VW*.28, y:VH*.28, r:270, h:265, a:.10, f:.05},
+    {x:VW*.75, y:VH*.62, r:310, h:200, a:.09, f:.04},
+    {x:VW*.5,  y:VH*.08, r:230, h:318, a:.08, f:.06}
+  );
+}
+
+/* ---------------- gates (asteroid columns) ---------------- */
+function makeVerts(){
+  const v=[]; for(let i=0;i<10;i++) v.push(rand(.78,1.06)); return v;
+}
+function columnBlobs(edgeY, dir){          // dir -1: column grows upward, +1: downward
+  const arr=[]; let edge=edgeY;
+  for(let i=0;i<9;i++){
+    const r=rand(26,50);
+    const cy=edge + dir*r;
+    const b={dx:rand(-14,14), y:cy, r, rot:rand(0,TAU), rs:rand(-.6,.6), verts:makeVerts()};
+    b.grad = ctx.createRadialGradient(-r*.35,-r*.4,r*.12,0,0,r*1.05);   // baked (blob-local)
+    b.grad.addColorStop(0,'#8a90aa'); b.grad.addColorStop(1,'#393e57');
+    arr.push(b);
+    edge = cy + dir*r*.15;
+    if((dir<0 && edge<-150) || (dir>0 && edge>VH+150)) break;
+  }
+  return arr;
+}
+function gateGapH(L){
+  let g = Math.max(L.gapMin, L.gap0 - levelGates*L.gapShrink);
+  if(levelGates<2) g += 34;               // grace on the first two gates of a level
+  return g;
+}
+function makeGate(x){
+  const L = LEVELS[level];
+  const gapH = gateGapH(L), half = gapH/2;
+  levelGates++;
+  const amp = Math.random()<L.driftP ? L.drift*rand(.8,1.15) : 0;
+  let lo = half+90+amp, hi = VH-half-90-amp;
+  if(hi<lo){ const m=(lo+hi)/2; lo=hi=m; }
+  const gapY0 = lo===hi ? lo : rand(lo,hi);
+  return {
+    x, gapY0, gapH, half, amp,
+    freq:rand(1.2,1.8), phase:rand(0,TAU), born:t,
+    oy:0, tail:L.spacing, scored:false, pair:false,
+    top:columnBlobs(gapY0-half,-1),
+    bot:columnBlobs(gapY0+half,+1)
+  };
+}
+function pairGate(g, x){                  // L3+ companion: static, offset toward mid-screen
+  const L = LEVELS[level];
+  const gapH = Math.max(L.gapMin, g.gapH-12), half = gapH/2;
+  const sgn = g.gapY0 < VH/2 ? 1 : -1;
+  const y = clamp(g.gapY0 + sgn*rand(150,205), half+90, VH-half-90);
+  levelGates++;
+  return {
+    x, gapY0:y, gapH, half, amp:0, freq:1, phase:0, born:t,
+    oy:0, tail:L.spacing, scored:false, pair:true,
+    top:columnBlobs(y-half,-1),
+    bot:columnBlobs(y+half,+1)
+  };
+}
+function updateGates(dt){
+  const L = LEVELS[level];
+  for(const g of gates){
+    g.x -= speed*dt;
+    if(g.amp) g.oy = g.amp*Math.sin(g.phase+(t-g.born)*g.freq);
+    for(const b of g.top) b.rot += b.rs*dt;
+    for(const b of g.bot) b.rot += b.rs*dt;
+  }
+  while(gates.length && gates[0].x < -150) gates.shift();
+  const last = gates[gates.length-1];
+  if(!last || last.x < VW - last.tail){
+    const g = makeGate(last ? last.x + last.tail : VW+160);
+    gates.push(g);
+    if(Math.random() < L.pair) gates.push(pairGate(g, g.x+175));
+  }
+  for(const g of gates){
+    if(!g.scored && g.x < comet.x-10){
+      g.scored = true; onScore(g);
+    }
+  }
+}
+function setScoreHud(){
+  ui.score.textContent = score;
+  ui.score.classList.remove('pop'); void ui.score.offsetWidth; ui.score.classList.add('pop');
+}
+function onScore(g){
+  const mult = level+1;
+  score += 10*mult;
+  const gy = g.gapY0 + g.oy;
+  rings.push({x:g.x, y:gy, r:24, a:.55});
+  floats.push({x:g.x, y:gy-40, txt:'+'+(10*mult), life:1});
+  flash = .12;
+  Sfx.score();
+  if(Math.abs(comet.y-gy) > g.half-GRAZE_BAND){       // graze: passed hugging a rock
+    score += 5*mult;
+    floats.push({x:g.x, y:gy-78, txt:'+'+(5*mult)+' GRAZE', life:1.1});
+    burstFx(comet.x-12, comet.y, 6, '255,255,255', 40, 160);
+    Sfx.graze();
+  }
+  setScoreHud();
+}
+function hitCol(col, gx, gy){
+  for(const b of col){
+    const rr = b.r*.82 + CRAD*.85;
+    const dx = comet.x-(gx+b.dx), dy = comet.y-(b.y+gy);
+    if(dx*dx+dy*dy < rr*rr) return true;
+  }
+  return false;
+}
+function hitTest(){
+  if(comet.y > VH-26) return true;
+  if(comet.y < 24){ comet.y=24; if(comet.vy<0) comet.vy=0; }
+  for(const g of gates){
+    if(g.x < comet.x-110 || g.x > comet.x+110) continue;
+    if(hitCol(g.top, g.x, g.oy) || hitCol(g.bot, g.x, g.oy)) return true;
+  }
+  return false;
+}
+
+/* ---------------- wind bands (L4+) ---------------- */
+function updateWinds(dt){
+  const L = LEVELS[level];
+  if(L.wind>0){
+    windTimer -= dt;
+    if(windTimer<=0){
+      winds.push({x:VW+rand(90,220), w:rand(110,160), dir:Math.random()<.5?-1:1, str:L.wind, played:false});
+      windTimer = rand(3.2,5.2);
+    }
+  }
+  for(let i=winds.length-1;i>=0;i--){
+    const z = winds[i];
+    z.x -= speed*dt;
+    if(z.x < -220){ winds.splice(i,1); continue; }
+    if(Math.abs(comet.x-z.x) < z.w/2){
+      comet.vy += z.dir*z.str*dt;
+      if(comet.vy > 1150) comet.vy = 1150;
+      if(!z.played){ z.played=true; Sfx.whoosh(); }
+    }
+  }
+}
+
+/* ---------------- gravity wells (L5) ---------------- */
+function updateWells(dt){
+  const L = LEVELS[level];
+  if(L.well>0){
+    wellTimer -= dt;
+    if(wellTimer<=0){
+      wells.push({x:VW+rand(120,220), y:clamp(comet.y+rand(-200,200),190,610), r:rand(48,66), phase:rand(0,TAU), played:false});
+      wellTimer = rand(5,8);
+    }
+  }
+  for(let i=wells.length-1;i>=0;i--){
+    const wl = wells[i];
+    wl.x -= speed*dt;
+    if(wl.x < -240){ wells.splice(i,1); continue; }
+    const dx = wl.x-comet.x, dy = wl.y-comet.y;
+    const d2 = dx*dx+dy*dy;
+    if(d2 < WELL_RANGE*WELL_RANGE){
+      const d = Math.sqrt(d2)||1;
+      const dd = Math.max(d, WELL_DMIN);
+      const a = WELL_K/(dd*dd);                 // accel toward well, capped ~532 u/s²
+      comet.vy += clamp(a*dy/d, -600, 600)*dt;
+      if(!wl.played){ wl.played=true; Sfx.wellIn(); }
+      if(Math.random()<.14 && parts.length<PARTS_MAX){   // tugging sparks
+        parts.push({x:comet.x-rand(2,16), y:comet.y+rand(-8,8),
+          vx:-speed*.5-dx*.3, vy:-dy*rand(.5,1.1),
+          life:.5, max:.5, s:rand(1.5,3), c:'181,123,255'});
+      }
+    }
+  }
+}
+
+/* ---------------- particles / floaters / rings ---------------- */
+function spawnTrail(){
+  if(parts.length>PARTS_MAX-2) return;
+  for(let i=0;i<2;i++) parts.push({
+    x:comet.x-rand(4,14), y:comet.y+rand(-6,6),
+    vx:-speed*rand(.65,.95), vy:rand(-40,40),
+    life:rand(.35,.6), max:.6, s:rand(3,7),
+    c: Math.random()<.75 ? '82,233,255' : '181,123,255'
+  });
+}
+function burstFx(x,y,n,c,spMin,spMax){
+  for(let i=0;i<n;i++){
+    if(parts.length>=PARTS_MAX) parts.shift();
+    const a=rand(0,TAU), sp=rand(spMin,spMax);
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,
+      life:rand(.3,.7),max:.7,s:rand(2,4),c});
+  }
+}
+function explode(){
+  for(let i=0;i<52;i++){
+    const a=rand(0,TAU), sp=rand(60,420);
+    parts.push({
+      x:comet.x, y:comet.y,
+      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-60,
+      life:rand(.4,.9), max:.9, s:rand(2.5,7),
+      c:['255,255,255','82,233,255','255,180,84','255,107,120'][Math.floor(rand(0,4))]
+    });
+  }
+}
+function updateFx(dt){
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=140*dt; p.life-=dt;
+    if(p.life<=0) parts.splice(i,1);
+  }
+  for(let i=floats.length-1;i>=0;i--){
+    const f=floats[i]; f.y-=64*dt; f.life-=dt*1.1;
+    if(f.life<=0) floats.splice(i,1);
+  }
+  for(let i=rings.length-1;i>=0;i--){
+    const r=rings[i]; r.r+=430*dt; r.a-=1.9*dt;
+    if(r.a<=0) rings.splice(i,1);
+  }
+}
+
+/* ---------------- sky scroll (visual, every state) ---------------- */
+function updateSky(dt){
+  const worldSpeed = (state==='playing') ? speed
+                   : (state==='clear')   ? speed*.8
+                   : (state==='menu'||state==='ready') ? 42 : 0;
+  for(const s of stars){
+    s.x -= worldSpeed*s.f*dt;
+    if(s.x < -4){ s.x = VW+4; s.y = rand(0,VH); }
+  }
+  for(const n of nebulae){
+    n.x -= worldSpeed*n.f*dt*10;
+    if(n.x < -n.r){ n.x = VW+n.r; n.y = rand(0,VH); }
+  }
+}
+
+/* ---------------- level gate / clear interstitial ---------------- */
+function applyLevelChange(){
+  const L = LEVELS[level];
+  ui.lvlLine.textContent = 'LEVEL '+(level+1)+' \u00b7 '+L.name;
+  showBanner('LEVEL '+(level+1)+' \u00b7 '+L.name);
+  Sfx.level();
+}
+function enterClear(){
+  state='clear';
+  clearLock=.55;
+  const bonus = 100*(level+1);
+  score += bonus;
+  for(const g of gates) g.scored = true;          // no free points during the drain
+  $('#clearTitle').textContent = 'LEVEL '+(level+1)+' CLEARED';
+  $('#clearBonus').textContent = '+'+bonus+' BONUS';
+  $('#clearNext').textContent  = 'NEXT \u2014 LEVEL '+(level+2)+' \u00b7 '+LEVELS[level+1].name;
+  ui.clearEl.classList.remove('off');
+  ui.hint.classList.add('hidden');
+  ui.pauseBtn.classList.add('hidden');
+  rings.push({x:comet.x, y:comet.y, r:20, a:.8});
+  burstFx(comet.x, comet.y, 24, '82,233,255', 60, 260);
+  burstFx(comet.x, comet.y, 12, '255,209,102', 40, 180);
+  setScoreHud();
+  Sfx.fanfare();
+  if(navigator.vibrate) navigator.vibrate(20);
+}
+function resumeFromClear(){
+  ui.clearEl.classList.add('off');
+  gateOpen=false;
+  level++;
+  gates.length=0; winds.length=0; wells.length=0;
+  levelGates=0; windTimer=4; wellTimer=5;
+  speed = LEVELS[level].sp;
+  comet.vy=0;
+  acc=0;
+  applyLevelChange();
+  state='playing';
+  ui.pauseBtn.classList.remove('hidden');
+}
+
+/* ---------------- run lifecycle ---------------- */
+function resetRun(){
+  t=0; score=0; level=0; levelGates=0;
+  speed=LEVELS[0].sp;
+  gates.length=0; parts.length=0; floats.length=0; rings.length=0;
+  winds.length=0; wells.length=0;
+  gateOpen=false; clearLock=0; windTimer=99; wellTimer=99;
+  shake=0; flash=0; hitStop=0; dieTimer=0;
+  comet.dead=false; comet.vy=0; comet.rot=0; comet.squash=0;
+  comet.x=VW*.3; comet.y=VH*.45;
+  ui.clearEl.classList.add('off');
+  bannerHide();
+  ui.score.textContent='0';
+}
+function toMenu(){
+  state='menu'; resetRun();
+  ui.menu.classList.remove('off'); ui.over.classList.add('off'); ui.paused.classList.add('off');
+  ui.hud.classList.add('off'); ui.lvlLine.classList.add('off');
+  ui.hint.classList.add('hidden'); ui.pauseBtn.classList.add('hidden');
+  $('#menuBest').textContent = 'BEST\u00a0' + best;
+}
+function toReady(){
+  resetRun();
+  state='ready';
+  ui.menu.classList.add('off'); ui.over.classList.add('off'); ui.paused.classList.add('off');
+  ui.hud.classList.add('off'); ui.lvlLine.classList.add('off');
+  ui.hint.classList.remove('hidden'); ui.pauseBtn.classList.add('hidden');
+}
+function toPlaying(){
+  state='playing';
+  acc=0;
+  ui.hint.classList.add('hidden'); ui.hud.classList.remove('off'); ui.lvlLine.classList.remove('off');
+  ui.pauseBtn.classList.remove('hidden');
+  applyLevelChange();
+}
+function showOver(){
+  state='over';
+  overLockUntil = performance.now()+500;
+  const isNew = score>best;
+  if(isNew){ best=score; try{ localStorage.setItem(BEST_KEY,best); }catch(e){} }
+  $('#finalScore').textContent = score;
+  $('#finalBest').textContent = best;
+  $('#newBest').classList.toggle('hidden', !isNew);
+  $('#reached').textContent = 'REACHED LEVEL '+(level+1)+' \u00b7 '+LEVELS[level].name;
+  ui.over.classList.remove('off');
+  ui.hud.classList.add('off'); ui.lvlLine.classList.add('off');
+  ui.pauseBtn.classList.add('hidden');
+  Sfx.over();
+}
+function pauseGame(){
+  if(state!=='playing') return;
+  state='paused';
+  ui.paused.classList.remove('off');
+  Sfx.click();
+}
+function resumeGame(){
+  if(state!=='paused') return;
+  state='playing';
+  acc=0;
+  ui.paused.classList.add('off');
+  Sfx.resume();
+}
+function die(){
+  state='dying';
+  hitStop=.12; shake=1; dieTimer=0;
+  comet.dead=true;
+  explode();
+  Sfx.hit();
+  if(navigator.vibrate) navigator.vibrate([20,40,30]);
+}
+
+/* ---------------- fixed-step simulation (playing only) ---------------- */
+function step(dt){
+  t += dt;
+  const L = LEVELS[level];
+
+  // level gate: stop at the end of a level and ask to continue
+  if(L.end!==Infinity && t>=L.end && !gateOpen){
+    gateOpen=true;
+    enterClear();
+    return;
+  }
+
+  // speed: level base + within-level ramp (SINGULARITY ramps longer)
+  speed = Math.min(L.sp + (t-L.at)*L.ramp, L.sp+48);
+  if(level===4 && t > L.at+60) speed = Math.min(430, speed + (t-L.at-60)*.6);
+
+  // comet physics
+  comet.vy = Math.min(comet.vy + GRAV*dt, VMAX);
+  updateWinds(dt);
+  updateWells(dt);
+  comet.y += comet.vy*dt;
+  const targetRot = clamp(comet.vy*0.0013, -.45, 1.05);
+  comet.rot += (targetRot-comet.rot)*Math.min(1, dt*12);
+  comet.squash = Math.max(0, comet.squash - dt*5);
+  spawnTrail();
+
+  updateGates(dt);
+  if(hitTest()) die();
+}
+
+/* ---------------- input ---------------- */
+let lastTap=0;
+function tap(){
+  const now=performance.now();
+  if(now-lastTap<40) return;
+  lastTap=now;
+  Sfx.unlock();
+  if(state==='menu'){ toReady(); return; }
+  if(state==='ready'){ toPlaying(); flap(); return; }
+  if(state==='paused'){ resumeGame(); return; }
+  if(state==='clear'){
+    if(clearLock<=0){ Sfx.click(); resumeFromClear(); }
+    return;
+  }
+  if(state==='playing'){ flap(); return; }
+  if(state==='over' && now>overLockUntil){ Sfx.click(); toReady(); }
+}
+function flap(){
+  comet.vy = FLAPV;
+  comet.squash = 1;
+  Sfx.flap();
+  if(navigator.vibrate) navigator.vibrate(8);
+  if(parts.length<PARTS_MAX-5)
+    burstFx(comet.x-14, comet.y, 5, '82,233,255', 30, 120);
+}
+document.addEventListener('pointerdown', e => {
+  if(e.target.closest('button')) return;
+  tap();
+});
+document.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+  if(e.repeat) return;
+  if(e.code==='Space' || e.code==='ArrowUp'){ e.preventDefault(); tap(); }
+  else if(e.code==='Enter' && state==='over' && performance.now()>overLockUntil){ Sfx.click(); toReady(); }
+});
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden && state==='playing') pauseGame();
+});
+
+/* ---------------- buttons / DOM ---------------- */
+const ui = {
+  menu:$('#menu'), over:$('#over'), paused:$('#paused'), clearEl:$('#clear'),
+  hud:$('#hud'), lvlLine:$('#lvlLine'), hint:$('#hint'), score:$('#score'),
+  pauseBtn:$('#pauseBtn')
+};
+$('#playBtn').addEventListener('click', () => { Sfx.unlock(); Sfx.click(); toReady(); });
+$('#retryBtn').addEventListener('click', () => { Sfx.click(); toReady(); });
+$('#menuBtn').addEventListener('click', () => { Sfx.click(); toMenu(); });
+$('#pauseBtn').addEventListener('click', pauseGame);
+$('#resumeBtn').addEventListener('click', resumeGame);
+$('#quitBtn').addEventListener('click', () => { Sfx.click(); toMenu(); });
+
+const bannerEl = $('#banner');
+function showBanner(txt){
+  bannerEl.innerHTML = '<span class="rule"></span>'+txt+'<span class="rule"></span>';
+  bannerEl.classList.remove('show'); void bannerEl.offsetWidth; bannerEl.classList.add('show');
+}
+function bannerHide(){ bannerEl.classList.remove('show'); }
+
+const ICON_ON  = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 8.6a5 5 0 010 6.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const ICON_OFF = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const muteBtn = $('#muteBtn');
+function renderMute(){ muteBtn.innerHTML = Sfx.muted ? ICON_OFF : ICON_ON; }
+muteBtn.addEventListener('click', () => { Sfx.toggle(); renderMute(); Sfx.click(); });
+renderMute();
+
+/* ---------------- render ---------------- */
+const windGradUp = ctx.createLinearGradient(-80,0,80,0);
+windGradUp.addColorStop(0,'rgba(125,240,255,0)');
+windGradUp.addColorStop(.5,'rgba(125,240,255,.07)');
+windGradUp.addColorStop(1,'rgba(125,240,255,0)');
+const windGradDown = ctx.createLinearGradient(-80,0,80,0);
+windGradDown.addColorStop(0,'rgba(255,158,61,0)');
+windGradDown.addColorStop(.5,'rgba(255,158,61,.07)');
+windGradDown.addColorStop(1,'rgba(255,158,61,0)');
+
+function drawSky(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0a0d26'); g.addColorStop(.55,'#130f31'); g.addColorStop(1,'#1c1038');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+function drawNebulae(){
+  for(const n of nebulae){
+    const g = ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r);
+    g.addColorStop(0, `hsla(${n.h},80%,62%,${n.a})`);
+    g.addColorStop(1, 'hsla(0,0%,0%,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,TAU); ctx.fill();
+  }
+}
+function drawStars(){
+  ctx.fillStyle='#fff';
+  for(const s of stars){
+    const a = .25 + .75*Math.abs(Math.sin(s.tw + tNow*s.ts));
+    ctx.globalAlpha = a*(s.r/2.2*.7+.3);
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,TAU); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+function drawWinds(){
+  for(const z of winds){
+    const col = z.dir<0 ? '125,240,255' : '255,158,61';
+    ctx.save(); ctx.translate(z.x,0);
+    ctx.fillStyle = z.dir<0 ? windGradUp : windGradDown;
+    ctx.fillRect(-z.w/2,0,z.w,VH);
+    ctx.strokeStyle='rgba('+col+',.28)';
+    ctx.lineWidth=2; ctx.lineCap='round';
+    const span=VH+160, spd=z.dir<0?-260:260;
+    for(let i=0;i<6;i++){
+      const xx = -z.w*.36 + i*z.w*.145;
+      let yy = ((tNow*spd + i*137) % span + span) % span - 80;
+      ctx.beginPath(); ctx.moveTo(xx,yy); ctx.lineTo(xx,yy+34); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.lineCap='butt';
+}
+function drawWells(){
+  for(const wl of wells){
+    const pulse = .5+.5*Math.sin(tNow*TAU*.8+wl.phase);
+    ctx.strokeStyle='rgba(181,123,255,'+(.06+.05*pulse)+')';
+    ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(wl.x,wl.y,WELL_RANGE,0,TAU); ctx.stroke();
+    ctx.strokeStyle='rgba(181,123,255,'+(.10+.08*pulse)+')';
+    ctx.beginPath(); ctx.arc(wl.x,wl.y,200,0,TAU); ctx.stroke();
+    const g = ctx.createRadialGradient(wl.x,wl.y,2,wl.x,wl.y,wl.r*2.2);
+    g.addColorStop(0,'#1a0526'); g.addColorStop(.55,'rgba(58,16,84,.85)'); g.addColorStop(1,'rgba(181,123,255,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(wl.x,wl.y,wl.r*2.2,0,TAU); ctx.fill();
+    ctx.fillStyle='rgba(210,160,255,.8)';
+    for(let i=0;i<8;i++){
+      const a=wl.phase+tNow*2.2+i*TAU/8;
+      ctx.beginPath();
+      ctx.arc(wl.x+Math.cos(a)*wl.r*1.6, wl.y+Math.sin(a)*wl.r*1.6, 1.8, 0, TAU);
+      ctx.fill();
+    }
+  }
+}
+function drawBlob(b){
+  const r=b.r;
+  ctx.save(); ctx.translate(b.dx,b.y); ctx.rotate(b.rot);
+  ctx.beginPath();
+  for(let i=0;i<b.verts.length;i++){
+    const a=i/b.verts.length*TAU, rr=r*b.verts[i];
+    const px=Math.cos(a)*rr, py=Math.sin(a)*rr;
+    i ? ctx.lineTo(px,py) : ctx.moveTo(px,py);
+  }
+  ctx.closePath();
+  ctx.fillStyle=b.grad; ctx.fill();
+  ctx.lineWidth=2; ctx.strokeStyle='rgba(150,170,230,.22)'; ctx.stroke();
+  ctx.fillStyle='rgba(14,17,36,.3)';
+  ctx.beginPath(); ctx.arc(-r*.22, r*.12, r*.24, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc( r*.25,-r*.18, r*.15, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function drawChevron(x,y,sgn,a){
+  ctx.fillStyle='rgba(125,240,255,'+a+')';
+  ctx.beginPath();
+  ctx.moveTo(x, y+sgn*8);
+  ctx.lineTo(x-7, y-sgn*4);
+  ctx.lineTo(x+7, y-sgn*4);
+  ctx.closePath(); ctx.fill();
+}
+function drawGates(){
+  for(const g of gates){
+    ctx.save(); ctx.translate(g.x, g.oy);
+    for(const b of g.top) drawBlob(b);
+    for(const b of g.bot) drawBlob(b);
+    ctx.restore();
+    if(g.amp){                                   // drift chevrons show the gap's motion
+      const gy = g.gapY0+g.oy;
+      const v = g.amp*g.freq*Math.cos(g.phase+(t-g.born)*g.freq);
+      const sgn = v>0?1:-1;
+      const a = .22+.16*Math.sin(tNow*8);
+      drawChevron(g.x, gy-g.half+14, sgn, a);
+      drawChevron(g.x, gy+g.half-14, sgn, a);
+    }
+  }
+}
+function drawComet(){
+  if(comet.dead) return;
+  const {x,y} = comet;
+  ctx.save();
+  ctx.translate(x,y); ctx.rotate(comet.rot);
+  ctx.scale(1 + comet.squash*.12, 1 - comet.squash*.22);
+  ctx.globalCompositeOperation='lighter';
+  let g = ctx.createRadialGradient(0,0,2,0,0,36);
+  g.addColorStop(0,'rgba(140,245,255,.5)');
+  g.addColorStop(1,'rgba(82,233,255,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,36,0,TAU); ctx.fill();
+  g = ctx.createRadialGradient(0,0,1,0,0,20);
+  g.addColorStop(0,'rgba(255,255,255,.95)');
+  g.addColorStop(.5,'rgba(160,244,255,.65)');
+  g.addColorStop(1,'rgba(82,233,255,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,20,0,TAU); ctx.fill();
+  ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(0,0,9.5,0,TAU); ctx.fill();
+  ctx.restore();
+}
+function drawParticles(){
+  ctx.globalCompositeOperation='lighter';
+  for(const p of parts){
+    ctx.globalAlpha = Math.max(0, p.life/p.max);
+    ctx.fillStyle = `rgb(${p.c})`;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.s*(p.life/p.max),0,TAU); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  ctx.globalCompositeOperation='source-over';
+}
+function drawRings(){
+  ctx.lineWidth=3;
+  for(const r of rings){
+    ctx.strokeStyle=`rgba(120,240,255,${Math.max(0,r.a)})`;
+    ctx.beginPath(); ctx.arc(r.x,r.y,r.r,0,TAU); ctx.stroke();
+  }
+}
+function drawFloats(){
+  ctx.font='700 34px Fredoka, sans-serif';
+  ctx.textAlign='center';
+  for(const f of floats){
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.life));
+    ctx.lineWidth=5; ctx.strokeStyle='rgba(10,12,34,.7)';
+    ctx.strokeText(f.txt,f.x,f.y);
+    ctx.fillStyle='#ffd166';
+    ctx.fillText(f.txt,f.x,f.y);
+  }
+  ctx.globalAlpha=1;
+}
+function render(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  drawSky();
+  ctx.save();
+  ctx.scale(SCALE,SCALE);
+  if(shake>0){ const s=shake*11; ctx.translate(rand(-s,s),rand(-s,s)); }
+  drawNebulae();
+  drawStars();
+  drawWinds();
+  drawWells();
+  drawGates();
+  drawParticles();
+  drawComet();
+  drawRings();
+  drawFloats();
+  ctx.restore();
+  if(flash>0){
+    ctx.fillStyle=`rgba(190,240,255,${flash})`;
+    ctx.fillRect(0,0,W,H);
+  }
+}
+
+/* ---------------- main loop ---------------- */
+let lastT=0, acc=0;
+const STEP=1/60;
+function frame(nowMs){
+  requestAnimationFrame(frame);
+  const now=nowMs/1000;
+  const dt = lastT===0 ? 0 : Math.max(0, Math.min(now-lastT, .05));
+  lastT=now;
+  if(state==='paused'){ render(); return; }
+  tNow += dt;
+  if(hitStop>0){ hitStop-=dt; render(); return; }
+
+  flash=Math.max(0, flash-dt*1.4);
+  shake=Math.max(0, shake-dt*2.6);
+  updateSky(dt);
+
+  if(state==='playing'){
+    acc+=dt;
+    let n=0;
+    while(acc>=STEP && n<3){
+      acc-=STEP;
+      step(STEP);
+      n++;
+      if(state!=='playing'){ acc=0; break; }
+    }
+  }else if(state==='menu' || state==='ready'){
+    comet.y = VH*.45 + Math.sin(tNow*2.6)*14;
+    comet.rot = Math.sin(tNow*2.6+1)*0.08;
+    spawnTrail();
+  }else if(state==='clear'){
+    clearLock=Math.max(0,clearLock-dt);
+    const ds=speed*.8;
+    for(const g of gates){
+      g.x -= ds*dt;
+      for(const b of g.top) b.rot += b.rs*dt;
+      for(const b of g.bot) b.rot += b.rs*dt;
+    }
+    while(gates.length && gates[0].x < -150) gates.shift();
+    for(const z of winds) z.x -= ds*dt;
+    while(winds.length && winds[0].x < -220) winds.shift();
+    for(const wl of wells) wl.x -= ds*dt;
+    while(wells.length && wells[0].x < -240) wells.shift();
+    comet.y += (VH*.5-comet.y)*Math.min(1,dt*1.6);
+    comet.rot += (0-comet.rot)*Math.min(1,dt*3);
+    spawnTrail();
+  }else if(state==='dying'){
+    dieTimer += dt;
+    comet.vy = Math.min(comet.vy + 2400*dt, 1100);
+    comet.y += comet.vy*dt;
+    comet.rot += 7*dt;
+    if(dieTimer > .85 || comet.y > VH+90) showOver();
+  }
+
+  updateFx(dt);
+  render();
+}
+
+/* ---------------- boot ---------------- */
+resize();
+initSky();
+toMenu();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
