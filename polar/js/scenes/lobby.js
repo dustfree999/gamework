@@ -144,7 +144,7 @@ export default class LobbyScene {
       ctx.fillText(name, x + 62 * u, y + 44 * u);
       ctx.font = `${Math.round(13 * u)}px sans-serif`;
       ctx.fillStyle = type === 'human' && i === this.room.seat ? pc.color : (t.bgDark ? 'rgba(230,245,255,0.5)' : '#8C8272');
-      ctx.fillText(type === 'human' && i === this.room.seat ? tr('lobby.seat.me') : t(SEAT_LABEL[type]), x + 62 * u, y + 66 * u);
+      ctx.fillText(type === 'human' && i === this.room.seat ? tr('lobby.seat.me') : tr(SEAT_LABEL[type]), x + 62 * u, y + 66 * u);
       // 房主可补/移除 AI：空位显示"补AI"，AI 位显示"移除AI"；真人位不可动
       if (this.room.isHost && (type === 'ai' || type === 'empty')) {
         const tw = 76 * u;
