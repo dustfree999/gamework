@@ -259,7 +259,8 @@ export default class Main {
   _makeRoomTransport(name) {
     const pgThenLocal = (why) => {
       console.warn('[room] ' + why);
-      const pg = new PgSync({ name });
+      let pg;
+      try { pg = new PgSync({ name }); } catch (e) { return Promise.reject(e); } // 静态托管无中继时构造即抛（_roomFail 负责提示）
       return pg.connect()
         .then(() => { console.log('[room] 传输 = PgSync（自托管权威）'); return pg; })
         .catch(() => this._localTransport(name).then((s) => { console.log('[room] 传输 = RoomSync（本地 relay）'); return s; }));
@@ -357,8 +358,9 @@ export default class Main {
   _roomFail(e) {
     this.roomSync = null;
     this.goHome();
-    if (this.scene.showToast) { /* home 无 toast，静默 */ }
-    console.warn('[room] 连接失败：', e && e.message ? e.message : e);
+    const msg = (e && e.message) ? e.message : String((e && e.errMsg) || e || '联机连接失败');
+    console.warn('[room] 连接失败：', msg);
+    try { wx.showToast({ title: msg, icon: 'none', duration: 3500 }); } catch (err) { /* 无 toast 能力则仅 console */ }
   }
 
   /** 分享邀请：H5 复制链接带 ?r=房号；微信走分享卡片 query */

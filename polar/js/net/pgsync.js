@@ -54,7 +54,7 @@ export function resolvePgUrl() {
     // 静态托管（GitHub Pages / is-a.dev 指向 Pages）没有 ws 后端，同源 wss 必然 405——
     // 明确报错引导配置中继，而不是让回退链在 127.0.0.1 上撞墙
     if (/(^|\.)github\.io$|(^|\.)is-a\.dev$/.test(location.hostname)) {
-      throw new Error('此静态托管页无联机后端：请用 ?pgrelay=wss://<中继地址> 指定 wss 中继，或改用 http://43.138.126.226:8911/ 入口联机');
+      throw new Error('此网页版暂仅提供单机/挑战；联机对战请访问 http://43.138.126.226:8911/（或加 ?pgrelay=wss://… 指定中继）');
     }
     const base = location.pathname.replace(/\/web\/.*$/, '/') || '/';
     return `wss://${location.host}${base}`;

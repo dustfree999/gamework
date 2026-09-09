@@ -66,6 +66,16 @@
       return ctx;
     },
     vibrateShort() { if (navigator.vibrate) navigator.vibrate(30); },
+    showToast({ title = '', duration = 2000 } = {}) {
+      // 极简 DOM toast：底部居中圆角条，自动消失（对齐小游戏 wx.showToast 的 icon:'none' 形态）
+      const el = document.createElement('div');
+      el.textContent = String(title);
+      el.style.cssText = 'position:fixed;left:50%;bottom:18%;transform:translateX(-50%);z-index:9999;'
+        + 'max-width:80vw;padding:10px 18px;border-radius:10px;background:rgba(0,0,0,0.78);'
+        + 'color:#fff;font-size:14px;line-height:1.5;text-align:center;pointer-events:none;white-space:pre-wrap';
+      document.body.appendChild(el);
+      setTimeout(() => { el.remove(); }, Math.max(500, duration));
+    },
     getStorageSync(k) { try { return window.localStorage.getItem(k) || ''; } catch (e) { return ''; } },
     setStorageSync(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* 忽略 */ } },
   };
