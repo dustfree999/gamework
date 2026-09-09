@@ -44,6 +44,10 @@ export function setLang(lang) {
   if (!LANGS.includes(lang)) return false;
   currentLang = lang;
   try { wx.setStorageSync('polar_lang', lang); } catch (e) { /* 写失败不致命 */ }
+  // H5：切换后同步浏览器标签页标题（小游戏无 document，静默跳过）
+  try {
+    if (typeof document !== 'undefined' && DICT['game.title']) document.title = DICT['game.title'][lang];
+  } catch (e) { /* 忽略 */ }
   return true;
 }
 
