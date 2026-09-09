@@ -67,6 +67,12 @@ export default class BoardScene {
   applySnapshot(game) {
     const prev = this._remoteGame;
     this._remoteGame = game;
+    // 棋盘尺寸以权威快照为准：本地占位对局（开局瞬间）与云端压缩座位后的规格可能不同
+    // （如 4 人占位 → 2 人正式局），几何不重算会把同一坐标画到不同格网上、边缘幻影格落点出界
+    if (game && this.geom && (game.cols !== this.geom.cols || game.rows !== this.geom.rows)) {
+      this.geom = computeBoardGeom(canvas.width, canvas.height, game.cols, game.rows);
+      this.lastBoardSnapshot = (game.board || []).map((p) => ({ ...p })); // 旧像素位置作废，防跨网格误播动画
+    }
     if (!prev || prev.version === game.version) return;
     const lm = game.lastMove;
     const target = lm ? { gx: lm.x, gy: lm.y } : null;

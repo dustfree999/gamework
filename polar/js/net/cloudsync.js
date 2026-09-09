@@ -24,7 +24,7 @@
  * 断线自愈：watch onError → 退避重挂 + 立即 sync 拉平；对局中另有 20s 兜底轮询。
  * 降级：H5 / 未配置环境 ID → connect() reject，调用方回退本地 relay（RoomSync）或单机。
  */
-export const CLOUDBASE_ENV_ID = 'cloudbase-d0gcncn3qc13f33ea'; // ← 正式小游戏 wx5f114e7b27506752 关联的云开发环境（个人主体，全新无配额问题；见 design/gdd/systems/cloudsync-deploy.md §9/§11）
+export const CLOUDBASE_ENV_ID = ''; // ← 正式小游戏 wx-REDACTED 关联的云开发环境（个人主体，全新无配额问题；见 design/gdd/systems/cloudsync-deploy.md §9/§11）
 
 const PROTOCOL_VERSION = 1;   // 对齐 room 云函数 / js/net/protocol.js
 const POLL_INTERVAL_MS = 20000;   // 对局中 sync 兜底轮询（停滞恢复 + watch 断线自愈）

@@ -28,9 +28,13 @@ export class RoomSession {
     };
   }
 
-  /** 房主开局：按 roster 生成 playerTypes，广播 started。空位自动转 AI 补位（防无人控制死锁） */
+  /** 房主开局：按 roster 生成 playerTypes，广播 started。
+   *  relay（主机权威）：空位自动转 AI 补位（防无人控制死锁）。
+   *  cloud/pg（服务端权威）：服务端开局会压缩空位（player i ↔ seat i+1），
+   *  本地占位必须同口径——否则房主先按 4 人建盘，权威快照修正人数后棋盘几何滞后一拍（用户实测格子不一致根因之一）。 */
   start(roster, mode) {
-    const playerTypes = roster.map((s) => (s.type === 'human' ? 'human' : 'ai'));
+    const filled = this.room.transport === 'relay' ? roster : roster.filter((s) => s.type !== 'empty');
+    const playerTypes = filled.map((s) => (s.type === 'human' ? 'human' : 'ai'));
     const seed = Math.floor(Math.random() * 1e9);
     const players = playerTypes.length;
     this._begin({ seed, mode, players, playerTypes });
