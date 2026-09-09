@@ -54,6 +54,29 @@ let selfOpenid = ''; // 自己 openid（getUserInfo selfOpenId 返回，优先�
 let selfInfoReady = false; // 是否已尝试过识别自己
 let rows = []; // [{ openid, nickname, score, isSelf }]
 let status = 'idle'; // idle（待主域 sync）| loading | ready | empty | error
+let lang = 'zh'; // 界面语言（主域 width 消息下发，独立域不能 require 主域 i18n）
+
+/** 开放数据域内联小字典（独立 bundle 不可跨域引用，语言由主域下发） */
+const DICT = {
+  'odc.loading': { zh: '加载中…', en: 'Loading…' },
+  'odc.empty': { zh: '还没有战绩，快去玩一局', en: 'No records yet — play a game' },
+  'odc.fail': { zh: '加载失败，请稍后再试', en: 'Failed to load, try later' },
+  'odc.col.rank': { zh: '排名', en: 'Rank' },
+  'odc.col.name': { zh: '昵称', en: 'Name' },
+  'odc.col.wins': { zh: '胜场', en: 'Wins' },
+  'odc.col.score': { zh: '分数', en: 'Score' },
+  'odc.wins': { zh: '{n} 胜', en: '{n} wins' },
+  'odc.score': { zh: '{n} 分', en: '{n} pts' },
+  'odc.player': { zh: '玩家', en: 'Player' },
+};
+function tt(key, vars) {
+  const e = DICT[key] || {};
+  let s = vars ? e[lang] || '' : (e[lang] || e.zh || key);
+  if (vars) {
+    for (const k of Object.keys(vars)) s = s.replace('{' + k + '}', String(vars[k]));
+  }
+  return s;
+}
 
 // ───────────────────────── 主域消息通道 ─────────────────────────
 
@@ -71,6 +94,7 @@ wx.onMessage((msg) => {
       canvas.height = layout.h;
     }
     if (msg.theme && typeof msg.theme === 'object') theme = msg.theme;
+    if (msg.lang === 'en' || msg.lang === 'zh') lang = msg.lang; // 语言随布局下发
     draw();
   } else if (msg.cmd === 'sync') {
     kind = KINDS[msg.kind] ? msg.kind : 'soloBest';
@@ -112,7 +136,7 @@ function fetchRank() {
 function normalize(res) {
   const list = ((res && res.data) || []).map((u) => ({
     openid: u.openid || '',
-    nickname: u.nickname || '玩家',
+    nickname: u.nickname || tt('odc.player'),
     score: kvScore(u.KVDataList, kind),
     isSelf: false,
   }));
@@ -216,9 +240,9 @@ function draw() {
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
 
-  if (status === 'loading') { centerText('加载中…', u); return; }
-  if (status === 'empty') { centerText('还没有战绩，快去玩一局', u); return; }
-  if (status === 'error') { centerText('加载失败，请稍后再试', u); return; }
+  if (status === 'loading') { centerText(tt('odc.loading'), u); return; }
+  if (status === 'empty') { centerText(tt('odc.empty'), u); return; }
+  if (status === 'error') { centerText(tt('odc.fail'), u); return; }
   if (status !== 'ready' || !rows.length) return; // idle：等主域 sync
 
   // ── 表头：排名 / 昵称 / 分数（右列随榜单类型切换单位）──
@@ -231,11 +255,11 @@ function draw() {
   ctx.fillStyle = theme.textColor;
   ctx.font = `bold ${Math.round(12 * u)}px sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText('排名', rankX, headY);
+  ctx.fillText(tt('odc.col.rank'), rankX, headY);
   ctx.textAlign = 'left';
-  ctx.fillText('昵称', nickX, headY);
+  ctx.fillText(tt('odc.col.name'), nickX, headY);
   ctx.textAlign = 'right';
-  ctx.fillText(kind === 'wins' ? '胜场' : '分数', scoreR, headY);
+  ctx.fillText(kind === 'wins' ? tt('odc.col.wins') : tt('odc.col.score'), scoreR, headY);
   ctx.restore();
 
   // ── 数据行：行高自适应面板高度（20 行尽量全放下，最小 24u 后截断）──
@@ -284,7 +308,7 @@ function draw() {
     // 分数（右对齐；solo=分 / wins=胜）
     ctx.font = `bold ${Math.round(scoreFont)}px sans-serif`;
     ctx.textAlign = 'right';
-    ctx.fillText(kind === 'wins' ? `${r.score} 胜` : `${r.score} 分`, scoreR, cy + scoreFont * 0.36);
+    ctx.fillText(kind === 'wins' ? tt('odc.wins', { n: r.score }) : tt('odc.score', { n: r.score }), scoreR, cy + scoreFont * 0.36);
 
     // 行间细分隔线
     if (i < visible - 1) {

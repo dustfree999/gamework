@@ -35,14 +35,15 @@ import { drawButton, drawBackground } from '../render/button.js';
 import { roundRectPath, resetShadow } from '../render/board.js';
 import { reportScore } from '../core/stats.js';
 import { fetchGlobalRank } from '../net/profilesync.js';
+import { tr, getLang } from '../i18n.js';
 
 export { reportScore }; // 主域可从本文件或 core/stats.js 引入战绩上报
 
 /** 榜单 tab 定义：好友榜走开放数据域（微信 KV），全服榜走后端档案（小程序/H5 数据同源天然同步） */
 const TABS = [
-  { kind: 'soloBest', label: '单人最佳' },
-  { kind: 'wins', label: '对战胜场' },
-  { kind: 'global', label: '全服榜' },
+  { kind: 'soloBest', label: () => tr('rank.tab.solo') },
+  { kind: 'wins', label: () => tr('rank.tab.wins') },
+  { kind: 'global', label: () => tr('rank.tab.global') },
 ];
 
 export default class RankScene {
@@ -118,6 +119,7 @@ export default class RankScene {
         w: inner.w,
         h: inner.h,
         dpr: DPR,
+        lang: getLang(), // 语言随布局下发（开放数据域不可 import 主域 i18n）
         theme: { // 只传色板子集（全部可 JSON 序列化），完整主题不必跨域传输
           id: t.id,
           bgDark: !!t.bgDark,
@@ -183,11 +185,11 @@ export default class RankScene {
     const backH = 46 * u;
     const backY = 22 * u;
     const backPressed = this.pressRect && this.pressRect.id === 'back';
-    drawButton(ctx, t, { x: 16 * u, y: backY, w: backW, h: backH, label: '‹ 返回', pressed: backPressed });
+    drawButton(ctx, t, { x: 16 * u, y: backY, w: backW, h: backH, label: tr('rank.back'), pressed: backPressed });
     ctx.fillStyle = t.textColor;
     ctx.font = `bold ${Math.round(23 * u)}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(this.kind === 'global' ? '全服排行' : '好友排行', cx, backY + backH * 0.64);
+    ctx.fillText(this.kind === 'global' ? tr('rank.title.global') : tr('rank.title.friend'), cx, backY + backH * 0.64);
 
     // ── 榜单切换 tab（选中橙底白字，样式对齐首页分段胶囊）──
     const gap = 10 * u;
@@ -208,7 +210,7 @@ export default class RankScene {
       }
       ctx.fillStyle = sel ? '#FFFFFF' : (t.bgDark ? '#12314F' : '#4A3123');
       ctx.font = `bold ${Math.round(18 * u)}px sans-serif`;
-      ctx.fillText(tab.label, x + tabW / 2, L.tabsY + L.tabsH / 2 + 6 * u);
+      ctx.fillText(tab.label(), x + tabW / 2, L.tabsY + L.tabsH / 2 + 6 * u);
       this.tapRects.push({ id: 'tab', value: tab.kind, x, y: L.tabsY, w: tabW, h: L.tabsH });
     });
 
@@ -239,8 +241,8 @@ export default class RankScene {
       // H5 / 无开放数据域环境兜底文案
       ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.6)' : '#8C8272';
       ctx.font = `${Math.round(15 * u)}px sans-serif`;
-      ctx.fillText('当前环境不支持好友排行', cx, L.panelY + L.panelH / 2);
-      ctx.fillText('可切「全服榜」看后端战绩（两端同步）', cx, L.panelY + L.panelH / 2 + 24 * u);
+      ctx.fillText(tr('rank.browser-no-friend'), cx, L.panelY + L.panelH / 2);
+      ctx.fillText(tr('rank.browser-use-global'), cx, L.panelY + L.panelH / 2 + 24 * u);
     }
   }
 
@@ -252,14 +254,14 @@ export default class RankScene {
     if (g === 'loading' || !g) {
       ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.6)' : '#8C8272';
       ctx.font = `${Math.round(15 * u)}px sans-serif`;
-      ctx.fillText('正在加载全服榜…', cx, L.panelY + L.panelH / 2);
+      ctx.fillText(tr('rank.loading'), cx, L.panelY + L.panelH / 2);
       ctx.restore();
       return;
     }
     if (g === 'unavailable') {
       ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.6)' : '#8C8272';
       ctx.font = `${Math.round(15 * u)}px sans-serif`;
-      ctx.fillText('后端暂不可达，稍后再试', cx, L.panelY + L.panelH / 2);
+      ctx.fillText(tr('rank.fail'), cx, L.panelY + L.panelH / 2);
       ctx.restore();
       return;
     }
@@ -267,12 +269,12 @@ export default class RankScene {
     if (!rows.length) {
       ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.6)' : '#8C8272';
       ctx.font = `${Math.round(15 * u)}px sans-serif`;
-      ctx.fillText('还没有战绩——完成一局即可上榜', cx, L.panelY + L.panelH / 2);
+      ctx.fillText(tr('rank.empty'), cx, L.panelY + L.panelH / 2);
       ctx.restore();
       return;
     }
     const rowH = Math.min(56 * u, (L.panelH - 24 * u) / (rows.length + (g.me ? 1 : 0)));
-    const fmt = (row) => `${row.wins || 0} 胜 · 最佳 ${row.bestScore || 0}`;
+    const fmt = (row) => tr('rank.row', { w: row.wins || 0, b: row.bestScore || 0 });
     let y = L.y + rowH * 0.8;
     rows.forEach((row, i) => {
       ctx.font = `bold ${Math.round(16 * u)}px sans-serif`;
@@ -280,7 +282,7 @@ export default class RankScene {
       ctx.textAlign = 'left';
       ctx.fillText(`${i + 1}`, L.x + 6 * u, y);
       ctx.fillStyle = t.textColor || '#4A3123';
-      const nick = row.nick || '玩家' + String(row.openid || row.pid || '').slice(-4);
+      const nick = row.nick || tr('rank.player-default') + String(row.openid || row.pid || '').slice(-4);
       ctx.fillText(nick.length > 10 ? nick.slice(0, 10) + '…' : nick, L.x + 34 * u, y);
       ctx.textAlign = 'right';
       ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.65)' : '#8C8272';
@@ -291,7 +293,7 @@ export default class RankScene {
       y += 6 * u;
       ctx.font = `bold ${Math.round(14 * u)}px sans-serif`;
       ctx.fillStyle = t.accentColor || '#FF9F2E';
-      ctx.fillText(`我的战绩：${g.me.wins || 0} 胜 · 最佳 ${g.me.bestScore || 0}`, cx, y);
+      ctx.fillText(tr('rank.mine', { w: g.me.wins || 0, b: g.me.bestScore || 0 }), cx, y);
     }
     ctx.restore();
   }

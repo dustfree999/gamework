@@ -22,6 +22,7 @@
  */
 import { CloudSync, CLOUDBASE_ENV_ID } from './cloudsync.js';
 import { createWebSocket } from './wscompat.js';
+import { tr } from '../i18n.js';
 
 const DEFAULT_URL = 'ws://43.138.126.226:8911';
 
@@ -54,7 +55,7 @@ export function resolvePgUrl() {
     // 静态托管（GitHub Pages / is-a.dev 指向 Pages）没有 ws 后端，同源 wss 必然 405——
     // 明确报错引导配置中继，而不是让回退链在 127.0.0.1 上撞墙
     if (/(^|\.)github\.io$|(^|\.)is-a\.dev$/.test(location.hostname)) {
-      throw new Error('此网页版暂仅提供单机/挑战；联机对战请访问 http://43.138.126.226:8911/（或加 ?pgrelay=wss://… 指定中继）');
+      throw new Error(tr('net.h5-no-online'));
     }
     const base = location.pathname.replace(/\/web\/.*$/, '/') || '/';
     return `wss://${location.host}${base}`;
@@ -105,22 +106,22 @@ export class PgSync extends CloudSync {
       .then(() => this._call('ping'))
       .then((r) => {
         if (r && r.ok && r.proto === 1) return;
-        throw new Error('协议版本不兼容（请更新 server/pgserver.js）');
+        throw new Error(tr('net.proto-mismatch'));
       });
   }
 
   _open() {
-    if (this._closed) return Promise.reject(new Error('已关闭'));
+    if (this._closed) return Promise.reject(new Error(tr('net.closed')));
     if (this._helloOk && this._ws && this._ws.readyState === 1) return Promise.resolve();
     if (this._opening) return this._opening;
     this._opening = new Promise((resolve, reject) => {
       const ws = createWebSocket(this.url);
-      if (!ws) { this._opening = null; reject(new Error('当前环境不支持 WebSocket（请改用本地联机或单机模式）')); return; }
+      if (!ws) { this._opening = null; reject(new Error(tr('net.no-websocket'))); return; }
       this._ws = ws;
       const to = setTimeout(() => {
         try { ws.close(); } catch (e) { /* 忽略 */ }
         this._opening = null;
-        reject(new Error('连接超时：' + this.url));
+        reject(new Error(tr('net.timeout', { url: this.url })));
       }, 8000);
       this._helloResolve = () => {
         clearTimeout(to); this._opening = null; this._reconnectDelay = 1000;
@@ -134,9 +135,9 @@ export class PgSync extends CloudSync {
       ws.onclose = () => {
         const wasOpen = this._helloOk;
         this._helloOk = false;
-        for (const { reject } of this._pending.values()) reject(new Error('连接已断开'));
+        for (const { reject } of this._pending.values()) reject(new Error(tr('net.disconnected')));
         this._pending.clear();
-        if (this._opening) this._helloReject('连接失败：' + this.url);
+        if (this._opening) this._helloReject(tr('net.connect-fail-url', { url: this.url }));
         if (!this._closed && wasOpen) {
           this._emit('disconnected', {});
           this._scheduleReconnect();
@@ -157,7 +158,7 @@ export class PgSync extends CloudSync {
     if (!m || typeof m !== 'object') return;
     if (m.t === 'hello') {
       if (m.ok) { this._helloOk = true; if (this._helloResolve) this._helloResolve(); }
-      else if (this._helloReject) this._helloReject(m.reason || '握手被拒绝');
+      else if (this._helloReject) this._helloReject(m.reason || tr('net.handshake-reject'));
       return;
     }
     if (m.id != null && this._pending.has(m.id)) {
@@ -222,8 +223,8 @@ export class PgSync extends CloudSync {
     const ws = this._ws;
     this._ws = null;
     this._helloOk = false;
-    if (this._opening) this._helloReject('连接半开，重连中');
-    for (const { reject } of this._pending.values()) reject(new Error('连接半开'));
+    if (this._opening) this._helloReject(tr('net.half-open'));
+    for (const { reject } of this._pending.values()) reject(new Error(tr('net.half-open-short')));
     this._pending.clear();
     if (ws) {
       try { ws.onopen = null; ws.onmessage = null; ws.onerror = null; ws.onclose = null; ws.close(); } catch (e) { /* 忽略 */ }
@@ -248,7 +249,7 @@ export class PgSync extends CloudSync {
           if (this._staleCalls >= 2 && this._helloOk && this._ws && this._ws.readyState === 1) {
             this._killDeadSocket('RPC 连续超时');
           }
-          reject(new Error('云调用超时：' + action));
+          reject(new Error(tr('net.cloud-timeout', { a: action })));
         }, 10000);
         this._pending.set(id, {
           resolve: (r) => { clearTimeout(timer); resolve(r); },
@@ -315,7 +316,7 @@ export class PgSync extends CloudSync {
     this._stopWatch();
     this._stopPoll();
     if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = 0; }
-    for (const { reject } of this._pending.values()) reject(new Error('已断开'));
+    for (const { reject } of this._pending.values()) reject(new Error(tr('net.gone')));
     this._pending.clear();
     if (this._ws) {
       try { this._ws.onclose = null; this._ws.onerror = null; this._ws.onmessage = null; this._ws.close(); } catch (e) { /* 忽略 */ }

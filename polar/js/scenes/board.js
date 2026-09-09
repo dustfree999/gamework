@@ -9,6 +9,7 @@
 import { COLORS, CONFIG } from '../core/config.js';
 import { getTheme } from '../core/themes.js';
 import { countSafeCells } from '../core/rules.js';
+import { tr, colorName } from '../i18n.js';
 import { computeBoardGeom, gridToPx, pxToGrid, inBoard } from '../render/geometry.js';
 import { drawBoardBase, drawPiece, drawMagnetField, drawSnapFx, resetShadow, roundRectPath } from '../render/board.js';
 import { drawBackground } from '../render/button.js';
@@ -104,7 +105,7 @@ export default class BoardScene {
   /** 进入场景：布局 + 回合过场 */
   enter() {
     this._adoptedGame();
-    this.overlay = this.gs.game.mode === 'solo' ? '安全落子得分 · 触磁即止' : this._turnLabel();
+    this.overlay = this.gs.game.mode === 'solo' ? tr('board.enter-solo-hint') : this._turnLabel();
     this.overlayUntil = this.time + 1200;
   }
 
@@ -114,11 +115,11 @@ export default class BoardScene {
     if (this.session) {
       const mine = g.turn + 1 === this.session.room.seat;
       const aiTurn = g.playerTypes[g.turn] === 'ai';
-      if (mine) return '你的回合';
-      if (aiTurn) return 'AI 思考中…';
-      return `等待 P${g.turn + 1}`;
+      if (mine) return tr('board.your-turn');
+      if (aiTurn) return tr('board.ai-thinking');
+      return tr('board.wait-p', { n: g.turn + 1 });
     }
-    return '轮到 ' + this.playerLabel(g.turn);
+    return tr('board.turn-prefix') + this.playerLabel(g.turn);
   }
 
   playerLabel(idx) {
@@ -129,7 +130,7 @@ export default class BoardScene {
   }
 
   ownerCn(idx) {
-    return ['红方', '青方', '绿方', '黄方'][idx % 4];
+    return tr(['color.red-side', 'color.cyan-side', 'color.green-side', 'color.yellow-side'][idx % 4]);
   }
 
   /** 触摸开始：返回键 → AI 回合封锁 → 手牌区/棋盘起拖 */
@@ -186,11 +187,11 @@ export default class BoardScene {
       // requestMove 的返回没有 result 字段，这里绝不能再调 _onPlaced/_onFoul（会崩+双播）；
       // 只处理被拒的即时反馈。
       if (!res.ok && res.error === 'not-your-turn') {
-        this.overlay = '还没轮到你'; this.overlayUntil = this.time + 800;
+        this.overlay = tr('board.not-your-turn'); this.overlayUntil = this.time + 800;
       } else if (!res.ok && res.error === 'busy') {
-        this.overlay = '等待上一步确认…'; this.overlayUntil = this.time + 800;
+        this.overlay = tr('board.busy'); this.overlayUntil = this.time + 800;
       } else if (!res.ok && res.error === 'over') {
-        this.overlay = '对局已结束'; this.overlayUntil = this.time + 800;
+        this.overlay = tr('board.game-over'); this.overlayUntil = this.time + 800;
       }
     } else if (res.ok && res.foul) {
       this._onFoul(target, res.result);
@@ -223,7 +224,7 @@ export default class BoardScene {
     const toPx = gridToPx(this.geom, target.gx, target.gy);
     this.snapFx = { x: toPx.x, y: toPx.y, t: 0 };
     this.onFx('foul', null);
-    this.overlay = hits.length > 1 ? `触磁！${hits.length + 1} 颗回手` : '触磁！回手重放';
+    this.overlay = hits.length > 1 ? tr('board.foul-multi', { n: hits.length + 1 }) : tr('board.foul-replay');
     this.overlayUntil = this.time + 1100;
     this.lastBoardSnapshot = this.gs.game.board.map((p) => ({ ...p }));
   }
@@ -303,7 +304,7 @@ export default class BoardScene {
 
     if (this.aiThink == null) {
       this.aiThink = CONFIG.AI_THINK_MIN + Math.random() * CONFIG.AI_THINK_JITTER;
-      this.overlay = 'P' + (g.turn + 1) + ' (AI) 思考中…';
+      this.overlay = tr('board.ai-thinking-p', { n: g.turn + 1 });
       this.overlayUntil = this.time + (this.aiThink + CONFIG.AI_TWEEN) * 1000;
     }
     this.aiThink -= dt;
@@ -450,12 +451,11 @@ export default class BoardScene {
     ctx.stroke();
     const midY = y + h / 2;
     // 左：「你（红）」小标签（浅底上亮色字自动切深 accent 保对比）
-    const cn = ['红', '青', '绿', '黄'][turn % 4];
     const labelCol = !t.bgDark && isLight(pc.color) ? pc.accent : pc.color;
     ctx.fillStyle = labelCol;
     ctx.font = `bold ${Math.round(15 * u)}px sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText(`你（${cn}）`, x0 + 16 * u, midY + 5 * u);
+    ctx.fillText(tr('board.you', { c: colorName(turn) }), x0 + 16 * u, midY + 5 * u);
     // 中：四形状图例（圆/方/三角/菱，当前玩家色）
     drawShapeLegend(ctx, x0 + w * 0.52, midY, 9 * u, pc.color, pc.accent);
     // 右：数量圆徽章
@@ -496,7 +496,7 @@ export default class BoardScene {
       // P 标签（AI 标注）
       ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.55)' : 'rgba(62,39,35,0.55)';
       ctx.textAlign = 'center';
-      ctx.fillText('P' + (i + 1) + (g.playerTypes[i] === 'ai' ? '·AI' : ''), x, y + r + 14 * u);
+      ctx.fillText('P' + (i + 1) + (g.playerTypes[i] === 'ai' ? tr('board.ai-tag') : ''), x, y + r + 14 * u);
     }
     // G9：安全格数 HUD（盘面磁力密度直观化：越少越容易触磁回手）
     if (g.mode === 'classic') {
@@ -504,7 +504,7 @@ export default class BoardScene {
       ctx.textAlign = 'center';
       ctx.fillStyle = safeN <= 4 ? '#FF3B30' : safeN <= 8 ? '#FFB300' : (t.bgDark ? 'rgba(230,245,255,0.55)' : 'rgba(62,39,35,0.55)');
       ctx.font = `bold ${Math.round(13 * u)}px sans-serif`;
-      ctx.fillText('安全格 ' + safeN, geom.originX + geom.bw / 2, y - r - 10 * u);
+      ctx.fillText(tr('board.safe-cells', { n: safeN }), geom.originX + geom.bw / 2, y - r - 10 * u);
     }
   }
 

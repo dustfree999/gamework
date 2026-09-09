@@ -17,6 +17,7 @@
  */
 import { CLOUDBASE_ENV_ID } from './cloudsync.js';
 import { PgSync, loadPid } from './pgsync.js';
+import { tr } from '../i18n.js';
 
 let cloudInited = false;
 
@@ -97,7 +98,7 @@ export function uploadProfile(game, { pid, nick, myIndex } = {}) {
   const payload = payloadOf(game, myIndex || 0);
   if (!payload) return Promise.resolve(false);
   const id = pid || loadPid();
-  return callProfile('report', Object.assign({ nick: nick || '玩家' + id.slice(-4) }, payload), { pid: id })
+  return callProfile('report', Object.assign({ nick: nick || tr('rank.player-default') + id.slice(-4) }, payload), { pid: id })
     .then((r) => !!(r && r.ok))
     .catch(() => false);
 }

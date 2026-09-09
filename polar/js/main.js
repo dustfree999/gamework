@@ -4,6 +4,7 @@
  */
 import './render.js'; // 初始化 Canvas（物理像素）+ 导出 DPR
 import { DPR } from './render.js';
+import { tr } from './i18n.js';
 import { GameState } from './core/state.js';
 import HomeScene from './scenes/home.js';
 import BoardScene from './scenes/board.js';
@@ -159,8 +160,8 @@ export default class Main {
       if (typeof wx !== 'undefined' && wx.onShareAppMessage) {
         wx.onShareAppMessage(() => ({
           title: this.shareCode
-            ? '我在磁极对决留了个局，来打破我的纪录！'
-            : '磁极对决——放完手中磁珠且不触发磁吸者胜',
+            ? tr('main.share.has-challenge')
+            : tr('main.share.no-challenge'),
           query: this.shareCode ? 'c=' + this.shareCode : '',
         }));
         wx.showShareMenu && wx.showShareMenu({ withShareTicket: false });
@@ -183,9 +184,9 @@ export default class Main {
     this.shareCode = code;
     try {
       if (typeof wx !== 'undefined' && wx.setClipboardData) {
-        wx.setClipboardData({ data: `磁极对决挑战码 ${code}` });
+        wx.setClipboardData({ data: tr('game.challenge-prefix') + code });
       } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(`磁极对决挑战码 ${code}`).catch(() => {});
+        navigator.clipboard.writeText(tr('game.challenge-prefix') + code).catch(() => {});
       }
       wx.shareAppMessage && wx.shareAppMessage({ query: 'c=' + code });
     } catch (e) { /* 静默 */ }
@@ -286,7 +287,7 @@ export default class Main {
   /** 联机：创建房间 → 大厅 */
   enterRoom(mode) {
     this.roomMode = mode || 'classic';
-    this._makeRoomTransport('我').then((sync) => {
+    this._makeRoomTransport(tr('main.me')).then((sync) => {
       this.roomSync = sync;
       sync.onEvent = (type, p) => this._roomEvent(type, p);
       sync.hostRoom(this.roomMode);
@@ -305,13 +306,13 @@ export default class Main {
       }
     } catch (e) { /* 走 H5 分支 */ }
     if (typeof window !== 'undefined' && window.prompt) {
-      code = window.prompt('输入好友给的房间号（6 位）', '');
+      code = window.prompt(tr('main.prompt-room'), '');
       if (code) this._joinRoom(code.trim().toUpperCase());
     }
   }
 
   _joinRoom(roomId) {
-    this._makeRoomTransport('我').then((sync) => {
+    this._makeRoomTransport(tr('main.me')).then((sync) => {
       this.roomSync = sync;
       sync.onEvent = (type, p) => this._roomEvent(type, p);
       sync.joinRoom(roomId);
@@ -333,12 +334,12 @@ export default class Main {
     if (type === 'error') {
       if (this.sceneName === 'lobby') {
         // 加入失败（房间已满/不存在/连接断开）：阻塞式提示，点"回首页"退出
-        if (this.scene.showFatal) this.scene.showFatal(p.msg || '连接失败');
+        if (this.scene.showFatal) this.scene.showFatal(p.msg || tr('main.error.connect'));
         else { this.roomSync = null; this.goHome(); }
       } else if (this.sceneName === 'board' && this.roomSync && this.roomSync.isHost === true && this.roomSync._started === false) {
         // 云端开局被拒（竞态：唯一同伴在 RPC 前离开）且已进 board → 回大厅提示，防幽灵局。
         // 仅 CloudSync/PgSync 有此信号（失败恢复 isHost=true、_started=false）；relay 主机权威不会走到这。
-        const msg = p.msg || '开局失败';
+        const msg = p.msg || tr('main.error.start');
         if (this.roomSession.dispose) this.roomSession.dispose();
         this.roomSession = null;
         this._openLobby(this.roomSync);
@@ -358,7 +359,7 @@ export default class Main {
   _roomFail(e) {
     this.roomSync = null;
     this.goHome();
-    const msg = (e && e.message) ? e.message : String((e && e.errMsg) || e || '联机连接失败');
+    const msg = (e && e.message) ? e.message : String((e && e.errMsg) || e || tr('main.error.net'));
     console.warn('[room] 连接失败：', msg);
     try { wx.showToast({ title: msg, icon: 'none', duration: 3500 }); } catch (err) { /* 无 toast 能力则仅 console */ }
   }
@@ -367,14 +368,14 @@ export default class Main {
   _inviteFriend(roomId) {
     try {
       if (typeof wx !== 'undefined' && wx.setClipboardData) {
-        wx.setClipboardData({ data: `磁极对决房间号：${roomId}（打开小游戏输入房号加入）` });
+        wx.setClipboardData({ data: tr('main.room-invite', { id: roomId }) });
         wx.shareAppMessage && wx.shareAppMessage({ query: `r=${roomId}` });
       } else if (typeof window !== 'undefined' && window.location && navigator.clipboard) {
         const link = `${window.location.origin}${window.location.pathname}?r=${roomId}`;
         navigator.clipboard.writeText(link).catch(() => {});
       }
     } catch (e) { /* 静默 */ }
-    if (this.scene.showToast) this.scene.showToast(`房号 ${roomId} 已复制，发给好友吧`);
+    if (this.scene.showToast) this.scene.showToast(tr('main.room-copied', { id: roomId }));
   }
 
   /** 大厅"开始对战" → 房间对局 */

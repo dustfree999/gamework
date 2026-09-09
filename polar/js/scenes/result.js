@@ -9,9 +9,8 @@ import { getTheme } from '../core/themes.js';
 import { roundRectPath, resetShadow } from '../render/board.js';
 import { drawButton, drawBackground } from '../render/button.js';
 import { rankOf } from '../core/rules.js';
-import { drawRibbonBanner, drawMedal, drawAvatarBadge } from '../render/decor.js';
-
-const CN = ['红', '青', '绿', '黄']; // 玩家色名（对应 P1-P4）
+import { drawRibbonBanner, drawMedal, drawAvatarBadge, themeName } from '../render/decor.js';
+import { tr, colorName } from '../i18n.js';
 
 export default class ResultScene {
   constructor(ctx, game, { onReplay, onHome, onChallenge, themeId, myIndex = 0 } = {}) {
@@ -96,21 +95,21 @@ export default class ResultScene {
     drawBackground(ctx, t);
 
     // ── 顶部：金冠 + 缎带横幅「结算」 ──
-    drawRibbonBanner(ctx, cx, L.bannerY, L.bannerW, L.bannerH, '结算', t, u);
+    drawRibbonBanner(ctx, cx, L.bannerY, L.bannerW, L.bannerH, tr('result.title'), t, u);
 
     // 结束原因 + 胜者（小字，保留原信息量）
     const reasonText = {
-      empty: '棋子全部放完',
-      stall: '磁力僵局 · 剩余手牌定名次',
-      full: solo ? '棋盘放满 · 完美收官！' : '棋盘放满 · 剩余手牌定名次',
-      nomove: '无处安全落子 · 完美收官！',
-      foul: '触磁 · 挑战结束',
+      empty: tr('result.reason.empty'),
+      stall: tr('result.reason.stall'),
+      full: solo ? tr('result.reason.full-solo') : tr('result.reason.full'),
+      nomove: tr('result.reason.nomove'),
+      foul: tr('result.reason.foul'),
     }[this.game.endReason] || '';
     const winName = this.game.winner >= 0 ? `P${this.game.winner + 1}` : '';
     ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.7)' : 'rgba(62,39,35,0.6)';
     ctx.font = `${Math.round(13 * u)}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText([reasonText, winName && `${winName} 胜`].filter(Boolean).join(' · '), cx, L.rowsTop - 22 * u);
+    ctx.fillText([reasonText, winName && tr('result.winner', { name: winName })].filter(Boolean).join(' · '), cx, L.rowsTop - 22 * u);
 
     // ── 排名行：奖牌 + 头像徽章 + 玩家N（色名）+ 右对齐分数（浅色圆角卡）──
     const rank = this.game.ranking || [];
@@ -131,11 +130,11 @@ export default class ResultScene {
       // 头像徽章（笑脸）
       drawAvatarBadge(ctx, cx - L.rowW / 2 + 62 * u, y + L.cardH / 2, 14 * u, pc, { mode: 'face' });
       // 名字
-      const aiTag = this.game.playerTypes && this.game.playerTypes[pi] === 'ai' ? ' · AI' : '';
+      const aiTag = this.game.playerTypes && this.game.playerTypes[pi] === 'ai' ? tr('board.ai-tag') : '';
       ctx.fillStyle = t.bgDark ? '#E6F5FF' : '#4A3123';
       ctx.font = `bold ${Math.round(15 * u)}px sans-serif`;
       ctx.textAlign = 'left';
-      ctx.fillText(`玩家${pi + 1}（${CN[pi % 4]}）${aiTag}`, cx - L.rowW / 2 + 82 * u, y + L.cardH / 2 + 5 * u);
+      ctx.fillText(tr('result.player-name', { n: pi + 1, c: colorName(pi), ai: aiTag }), cx - L.rowW / 2 + 82 * u, y + L.cardH / 2 + 5 * u);
       // 右对齐分数
       ctx.font = `900 ${Math.round(20 * u)}px sans-serif`;
       ctx.textAlign = 'right';
@@ -153,14 +152,14 @@ export default class ResultScene {
     ctx.fillStyle = t.bgDark ? '#E6F5FF' : '#4A3123';
     ctx.font = `bold ${Math.round(16 * u)}px sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText('本局数据', cx - L.rowW / 2 + 18 * u, L.panelY + 27 * u);
+    ctx.fillText(tr('result.panel-title'), cx - L.rowW / 2 + 18 * u, L.panelY + 27 * u);
     const sum = (key) => this.game.stats.reduce((acc, s) => acc + (s[key] || 0), 0);
     const rows = [
       // 无耗时字段 → 用「总落子」替代；无连锁统计 → 用「触磁次数」替代（不新增状态字段）
-      ['总落子', this.game.totalPlaced || 0],
-      ['吸附次数', sum('snappedAway') + sum('looted')],
-      ['触磁次数', sum('fouls')],
-      ['你的排名', ranks[this.myIndex] != null ? `第 ${ranks[this.myIndex]} 名` : '—'],
+      [tr('result.row.placed'), this.game.totalPlaced || 0],
+      [tr('result.row.snapped'), sum('snappedAway') + sum('looted')],
+      [tr('result.row.fouls'), sum('fouls')],
+      [tr('result.row.rank'), ranks[this.myIndex] != null ? tr('result.rank-n', { n: ranks[this.myIndex] }) : '—'],
     ];
     rows.forEach(([k, v], i) => {
       const ry = L.panelY + 46 * u + i * 26 * u;
@@ -184,12 +183,12 @@ export default class ResultScene {
     });
 
     // ── 底部双按钮：再来一局（主）+ 分享（复用 onChallenge 回调）──
-    drawButton(ctx, t, { ...L.replay, label: '再来一局', primary: true, pressed: this.press === 'replay' });
-    drawButton(ctx, t, { ...L.share, label: '分享', pressed: this.press === 'share' });
+    drawButton(ctx, t, { ...L.replay, label: tr('result.replay'), primary: true, pressed: this.press === 'replay' });
+    drawButton(ctx, t, { ...L.share, label: tr('result.share'), pressed: this.press === 'share' });
     // 小字回首页（保留 onHome 回调接线；设计图未画，弱化呈现）
     ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.55)' : 'rgba(62,39,35,0.55)';
     ctx.font = `bold ${Math.round(14 * u)}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText('回 首 页', cx, L.home.y + 20 * u);
+    ctx.fillText(tr('result.home'), cx, L.home.y + 20 * u);
   }
 }

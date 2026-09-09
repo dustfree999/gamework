@@ -182,10 +182,12 @@ export function placePiece(game, x, y) {
       })),
       lastMove: { type: 'foul', x, y, owner, snapIds: [], hitIds: result.hitIds, lootCount: 0 },
       lastPlacedId: -1, // 触磁无"刚落的安全子"
-      stall: (game.stall || 0) + 1, // 盘面缩水，不可能刷新高水位
       history: [...game.history, { owner, x, y, type: 'foul' }],
       version: game.version + 1,
     };
+    // 触磁盘面缩水不可能刷新高水位：奇数（3人）累计防死循环，偶数完全豁免并清零
+    // （清零可顺带清掉旧版本存档对局残留的 stall 计数，避免恢复旧局时误触发僵局终局）
+    g.stall = shouldCountStall(g) ? (game.stall || 0) + 1 : 0;
     g.turn = nextTurn(g);
     const verdict = judge(g, owner);
     if (verdict.over) {
@@ -217,12 +219,15 @@ export function placePiece(game, x, y) {
     history: [...game.history, { owner, x, y, type }],
     version: game.version + 1,
   };
-  // classic 防停滞：安全落子刷新盘面高水位则清零计数，否则累计（触磁回手必然不刷新）
+  // classic 防停滞：盘面新高→清零；否则按 shouldCountStall 累计。
+  // 仅 3 人（奇数）累计，由 judge 的 CLASSIC_STALL×人数 阈值兜底防死循环；
+  // 2/4 人（偶数）完全豁免（实测禁兜底全策略自然收敛，任何截断都是误伤）。
   if (game.mode === 'classic') {
     const bmax = game.boardMax != null ? game.boardMax : game.board.length;
     const st = game.stall || 0;
     if (g.board.length > bmax) { g.boardMax = g.board.length; g.stall = 0; }
-    else { g.boardMax = bmax; g.stall = st + 1; }
+    else if (shouldCountStall(g)) { g.boardMax = bmax; g.stall = st + 1; }
+    else { g.boardMax = bmax; g.stall = 0; }
   }
 
   g.turn = nextTurn(g);
@@ -254,6 +259,23 @@ function nextTurn(g) {
     t = (t + 1) % n;
   }
   return -1;
+}
+
+/**
+ * classic 防停滞：本手是否计入 stall。仅奇数人数（3 人）启用兜底。
+ *
+ * 依据（2026-09-09 审计蒙特卡洛，200 种子/组 × easy/normal/hard/congest）：
+ *  - 3 人（奇数）normal/hard 禁兜底 200/200 永不收敛（手牌 5↔7 振荡、safe 恒=0、
+ *    5000 手 CAP）——必须由 CLASSIC_STALL×人数 阈值兜底终局（防死循环）。
+ *  - 2/4 人（偶数）禁兜底全部自然收敛到「先放完者胜」（最长 488 手、0 不收敛），
+ *    且任何 stall 截断都是误伤：除「安全格=0 的 congest 收官」外，easy 型对局在
+ *    仍有安全格、手牌充足时也会被截（2 人实测 42.5%）——故偶数完全豁免。
+ *    理论上「双方配合反复触磁+复置同格」可构造偶数死循环，但 AI 有安全格绝不触磁、
+ *    玩家可随时退出，接受该残余风险（实体玩具同样无仲裁）。
+ * @param {object} g 落子结算后的对局（board 已是新盘面）
+ */
+function shouldCountStall(g) {
+  return g.mode === 'classic' && g.playerCount % 2 !== 0;
 }
 
 /**

@@ -9,6 +9,7 @@
  */
 import { C2S, S2C } from './protocol.js';
 import { createWebSocket } from './wscompat.js';
+import { tr } from '../i18n.js';
 
 /**
  * 中转地址解析（局域网免费对战）：
@@ -40,7 +41,7 @@ export class RoomSync {
     this.transport = 'relay'; // RoomSession 据此区分 moveAck 来源校验（relay 只认房主座位）
     this.url = url || resolveRelayUrl();
     this.onEvent = onEvent || (() => {}); // (type, payload)
-    this.name = name || '玩家';
+    this.name = name || tr('rank.player-default');
     this.ws = null;
     this.roomId = null;
     this.seat = 0; // 我的座位（1-4；0=未入房）
@@ -53,9 +54,9 @@ export class RoomSync {
     return new Promise((resolve, reject) => {
       if (this.ws && this.ws.readyState === 1) return resolve();
       const ws = createWebSocket(this.url); // H5 原生 / 小游戏 wx.connectSocket（wscompat）
-      if (!ws) { reject(new Error('当前环境不支持 WebSocket')); return; }
+      if (!ws) { reject(new Error(tr('net.no-ws-roomsync'))); return; }
       this.ws = ws;
-      const to = setTimeout(() => reject(new Error('连接超时')), 5000);
+      const to = setTimeout(() => reject(new Error(tr('net.timeout-roomsync'))), 5000);
       this.ws.onopen = () => { clearTimeout(to); resolve(); };
       this.ws.onerror = (e) => { clearTimeout(to); reject((e && e.error) || new Error('ws error')); };
       this.ws.onclose = () => this._emit('disconnected', {});

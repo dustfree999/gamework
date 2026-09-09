@@ -8,9 +8,10 @@
 import { getTheme, saveTheme, THEMES, THEME_IDS } from '../core/themes.js';
 import { drawButton, drawBackground } from '../render/button.js';
 import { roundRectPath, resetShadow } from '../render/board.js';
+import { tr, getLang, setLang } from '../i18n.js';
 import {
   drawLogo, drawTitle, drawSubtitle, drawThemeCard,
-  drawModeCapsule, drawSparkle,
+  drawModeCapsule, drawSparkle, themeName,
 } from '../render/decor.js';
 
 export default class HomeScene {
@@ -34,8 +35,15 @@ export default class HomeScene {
     this.difficulty = 'normal';
     this.challenge = null; // 好友挑战 {mode,players,difficulty,steps,fouls}
     this.themeId = getTheme().id;
+    this.lang = getLang(); // 当前界面语言（右上按钮切换）
     this.tapRects = [];
     this.pressRect = null;
+  }
+
+  /** 切换界面语言（写 storage；渲染帧自动刷新） */
+  _toggleLang() {
+    this.lang = this.lang === 'en' ? 'zh' : 'en';
+    setLang(this.lang);
   }
 
   get theme() {
@@ -64,7 +72,7 @@ export default class HomeScene {
     else if (r.id === 'jcancel') { this.joinOpen = false; }
     else if (r.id === 'jok') {
       if (this.joinCode.length === 6 && this.onJoin) { this.onJoin(this.joinCode.toUpperCase()); this.joinOpen = false; }
-      else { this.joinErr = '请输入完整 6 位房号'; this.joinErrUntil = this.time + 1600; }
+      else { this.joinErr = tr('home.join.err-incomplete'); this.joinErrUntil = this.time + 1600; }
     }
   }
 
@@ -101,6 +109,8 @@ export default class HomeScene {
         } else if (r.id === 'theme') {
           this.themeId = r.value;
           saveTheme(this.themeId);
+        } else if (r.id === 'lang') {
+          this._toggleLang();
         }
         break;
       }
@@ -165,7 +175,7 @@ export default class HomeScene {
     if (this.getStats) {
       const st = this.getStats();
       if (st && (st.plays > 0)) {
-        const statText = `胜 ${st.wins} · 连胜 ${st.streak} · 最佳 ${st.soloBest}`;
+        const statText = tr('home.stats', { w: st.wins, s: st.streak, b: st.soloBest });
         ctx.save();
         ctx.font = `bold ${Math.round(13 * uv)}px sans-serif`;
         ctx.textAlign = 'center';
@@ -180,13 +190,26 @@ export default class HomeScene {
     // ── 主题选择（三张图文小卡：缩略画面 + 名称 + 选中✓角标）──
     ctx.font = `bold ${Math.round(19 * u)}px sans-serif`;
     ctx.fillStyle = t.textColor;
-    ctx.fillText('主题选择', cx, y + labelH * 0.8);
+    ctx.fillText(tr('home.theme-title'), cx, y + labelH * 0.8);
     y += labelH;
     const sidePad = 24 * u;
     const gap = 12 * u;
     const cardW = (W - sidePad * 2 - gap * (THEME_IDS.length - 1)) / THEME_IDS.length;
     let tx = sidePad;
     this.tapRects = [];
+    // ── 右上角语言切换按钮（EN/中；标题区右上 void，不占流式布局；tapRects 重置后注册）──
+    const lw = 46 * uv;
+    const lh2 = 24 * uv;
+    const lx = W - lw - 10 * uv;
+    const ly = 12 * uv;
+    roundRectPath(ctx, lx, ly, lw, lh2, lh2 / 2);
+    ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.92)' : 'rgba(62,39,35,0.9)';
+    ctx.fill();
+    ctx.fillStyle = t.bgDark ? '#12314F' : '#FFFFFF';
+    ctx.font = `bold ${Math.round(15 * uv)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(tr('legal.lang-en'), lx + lw / 2, ly + lh2 / 2 + 5 * uv);
+    this.tapRects.push({ id: 'lang', x: lx, y: ly, w: lw, h: lh2 });
     THEME_IDS.forEach((id) => {
       const sel = this.themeId === id;
       drawThemeCard(ctx, tx, y, cardW, cardH, id, sel, t, u);
@@ -209,8 +232,8 @@ export default class HomeScene {
       ctx.textAlign = 'center';
       ctx.fillText(
         ch.mode === 'solo'
-          ? `好友挑战：单人挑战 · 对方得分 ${ch.steps}`
-          : `好友挑战：${ch.players}人 · 对方 ${ch.steps} 步 · 触磁 ${ch.fouls} 次`,
+          ? tr('home.challenge-solo', { n: ch.steps })
+          : tr('home.challenge-multi', { p: ch.players, n: ch.steps, f: ch.fouls }),
         cx, y + chH * 0.63);
       y += chH + secGap * 0.5;
     }
@@ -218,13 +241,13 @@ export default class HomeScene {
     // ── 玩法选择（两胶囊 + 圆形图标徽章：交叉剑 / 机器人头）──
     ctx.font = `bold ${Math.round(19 * u)}px sans-serif`;
     ctx.fillStyle = t.textColor;
-    ctx.fillText('玩法选择', cx, y + labelH * 0.8);
+    ctx.fillText(tr('home.gamemode-title'), cx, y + labelH * 0.8);
     y += labelH;
     const gW = 150 * u;
     let gx2 = cx - (2 * gW + mGap) / 2;
     [
-      { v: 'classic', label: '对战', icon: 'swords' },
-      { v: 'solo', label: '单人挑战', icon: 'robot' },
+      { v: 'classic', label: tr('home.mode.duel'), icon: 'swords' },
+      { v: 'solo', label: tr('home.mode.solo'), icon: 'robot' },
     ].forEach((gm) => {
       const sel = this.gameMode === gm.v;
       drawModeCapsule(ctx, gx2, y, gW, segH, gm.label, gm.icon, sel, t, u);
@@ -237,11 +260,11 @@ export default class HomeScene {
     if (!solo) {
       ctx.font = `bold ${Math.round(19 * u)}px sans-serif`;
       ctx.fillStyle = t.textColor;
-      ctx.fillText('对战方式', cx, y + labelH * 0.8);
+      ctx.fillText(tr('home.battlemode-title'), cx, y + labelH * 0.8);
       y += labelH;
       const mSegW = 150 * u;
       let mx = cx - (2 * mSegW + mGap) / 2;
-      [{ v: 'ai', label: '人机对战', icon: 'robot' }, { v: 'room', label: '创建房间', icon: 'swords' }].forEach((m) => {
+      [{ v: 'ai', label: tr('home.mode.vsai'), icon: 'robot' }, { v: 'room', label: tr('home.mode.room'), icon: 'swords' }].forEach((m) => {
         const sel = this.battleMode === m.v;
         drawModeCapsule(ctx, mx, y, mSegW, segH, m.label, m.icon, sel, t, u);
         this.tapRects.push({ id: 'mode', value: m.v, x: mx, y, w: mSegW, h: segH });
@@ -252,7 +275,7 @@ export default class HomeScene {
       // ── 玩家人数（横排三小胶囊，选中橙底白字，对照设计图）──
       ctx.font = `bold ${Math.round(19 * u)}px sans-serif`;
       ctx.fillStyle = t.textColor;
-      ctx.fillText('选择人数', cx, y + labelH * 0.8);
+      ctx.fillText(tr('home.players-title'), cx, y + labelH * 0.8);
       y += labelH;
       const optW = 72 * u;
       const optGap = 20 * u;
@@ -269,9 +292,10 @@ export default class HomeScene {
           ctx.stroke();
         }
         ctx.fillStyle = sel ? '#FFFFFF' : (t.bgDark ? '#12314F' : '#4A3123');
+        // 英文「2P/3P/4P」比「2人」更短，兼容同布局
         ctx.font = `bold ${Math.round(25 * u)}px sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(n + '人', x + optW / 2, y + optH / 2 + 9 * u);
+        ctx.fillText(tr('home.players-count', { n }), x + optW / 2, y + optH / 2 + 9 * u);
         this.tapRects.push({ id: 'players', value: n, x, y, w: optW, h: optH });
       });
       y += optH + secGap;
@@ -281,12 +305,12 @@ export default class HomeScene {
     if (!solo && this.vsAI) {
       ctx.font = `bold ${Math.round(19 * u)}px sans-serif`;
       ctx.fillStyle = t.textColor;
-      ctx.fillText('AI 难度', cx, y + labelH * 0.8);
+      ctx.fillText(tr('home.ai-difficulty'), cx, y + labelH * 0.8);
       y += labelH + secGap * 0.15;
       const dW = 96 * u;
       const dGap = 14 * u;
       let dx = cx - (3 * dW + 2 * dGap) / 2;
-      [['easy', '简单'], ['normal', '普通'], ['hard', '困难']].forEach(([key, label]) => {
+      [['easy', tr('home.difficulty.easy')], ['normal', tr('home.difficulty.normal')], ['hard', tr('home.difficulty.hard')]].forEach(([key, label]) => {
         const sel = this.difficulty === key;
         roundRectPath(ctx, dx, y, dW, diffH, diffH / 2);
         ctx.fillStyle = sel ? (t.accentColor || '#FF9F2E') : (t.bgDark ? 'rgba(230,245,255,0.92)' : (t.cardBg || '#FFFDF4'));
@@ -306,14 +330,14 @@ export default class HomeScene {
     ctx.font = `${Math.round(15 * u)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(
-      solo ? '在磁珠间腾挪，每颗安全落子得 1 分，触磁即止' : '轮流放磁珠，吸在一起的整组收回手中——先放完者胜',
+      solo ? tr('home.hint.solo') : tr('home.hint.multi'),
       cx, y + hintH * 0.7);
     y += hintH + secGap * 0.7;
 
     // ── 开战按钮（大果冻胶囊 + 两侧星芒，对照设计图）──
     const bw = 236 * u;
     const pressed = this.pressRect && this.pressRect.id === 'start';
-    drawButton(ctx, t, { x: cx - bw / 2, y, w: bw, h: btnH, label: solo ? '挑 战' : '开 战', primary: true, pressed });
+    drawButton(ctx, t, { x: cx - bw / 2, y, w: bw, h: btnH, label: solo ? tr('home.mode.solo') : tr('home.start'), primary: true, pressed });
     const sc = t.accentColor || '#FF9F2E';
     drawSparkle(ctx, cx - bw / 2 - 18 * u, y + btnH * 0.28, 9 * u, sc, 0.9);
     drawSparkle(ctx, cx - bw / 2 - 32 * u, y + btnH * 0.66, 5 * u, sc, 0.65);
@@ -324,10 +348,10 @@ export default class HomeScene {
     // ── 底部入口：玩法说明 / 关于（合规：原创声明）──
     ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.55)' : 'rgba(62,39,35,0.55)';
     ctx.font = `bold ${Math.round(14 * u)}px sans-serif`;
-    ctx.fillText('玩法说明', cx - 138 * u, y + btnH + 26 * u);
-    ctx.fillText('好友排行', cx - 46 * u, y + btnH + 26 * u);
-    ctx.fillText('加入房间', cx + 46 * u, y + btnH + 26 * u);
-    ctx.fillText('关于', cx + 138 * u, y + btnH + 26 * u);
+    ctx.fillText(tr('home.btn.rules'), cx - 138 * u, y + btnH + 26 * u);
+    ctx.fillText(tr('home.btn.rank'), cx - 46 * u, y + btnH + 26 * u);
+    ctx.fillText(tr('home.btn.join'), cx + 46 * u, y + btnH + 26 * u);
+    ctx.fillText(tr('home.btn.about'), cx + 138 * u, y + btnH + 26 * u);
     this.tapRects.push({ id: 'rules', x: cx - 186 * u, y: y + btnH + 10 * u, w: 90 * u, h: 26 * u });
     this.tapRects.push({ id: 'rank', x: cx - 92 * u, y: y + btnH + 10 * u, w: 90 * u, h: 26 * u });
     this.tapRects.push({ id: 'join', x: cx + 2 * u, y: y + btnH + 10 * u, w: 90 * u, h: 26 * u });
@@ -350,7 +374,7 @@ export default class HomeScene {
       ctx.fillStyle = t.textColor;
       ctx.font = `bold ${Math.round(22 * u)}px sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText('输入好友房号', cx, py + 36 * u);
+      ctx.fillText(tr('home.join.title'), cx, py + 36 * u);
       // 6 格房号
       const slotW = (pw - 60 * u - 5 * 8 * u) / 6;
       const slotH = 46 * u;
@@ -398,18 +422,18 @@ export default class HomeScene {
       ctx.fill();
       ctx.fillStyle = t.textColor;
       ctx.font = `bold ${Math.round(17 * u)}px sans-serif`;
-      ctx.fillText('退格', px + 12 * u + fw / 2, fy + fh / 2 + 6 * u);
+      ctx.fillText(tr('home.join.backspace'), px + 12 * u + fw / 2, fy + fh / 2 + 6 * u);
       this.tapRects.push({ id: 'jdel', x: px + 12 * u, y: fy, w: fw, h: fh });
       const cxx = px + 12 * u + fw + 10 * u;
       ctx.fillStyle = t.bgDark ? 'rgba(230,245,255,0.55)' : '#8C8272';
-      ctx.fillText('取消', cxx + fw / 2, fy + fh / 2 + 6 * u);
+      ctx.fillText(tr('home.join.cancel'), cxx + fw / 2, fy + fh / 2 + 6 * u);
       this.tapRects.push({ id: 'jcancel', x: cxx, y: fy, w: fw, h: fh });
       const okx = cxx + fw + 10 * u;
       roundRectPath(ctx, okx, fy, fw, fh, 10 * u);
       ctx.fillStyle = t.accentColor || '#FF9F2E';
       ctx.fill();
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('加 入', okx + fw / 2, fy + fh / 2 + 6 * u);
+      ctx.fillText(tr('home.join.ok'), okx + fw / 2, fy + fh / 2 + 6 * u);
       this.tapRects.push({ id: 'jok', x: okx, y: fy, w: fw, h: fh });
       if (this.joinErr && this.time < this.joinErrUntil) {
         ctx.fillStyle = '#FF3B30';

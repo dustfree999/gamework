@@ -17,8 +17,19 @@
  */
 import { roundRectPath, resetShadow } from './board.js';
 import { THEMES } from '../core/themes.js';
+import { tr } from '../i18n.js';
 
 const PI2 = Math.PI * 2;
+
+/** 首页大字文案（双语；EN 用 Polar Clash，短于 Magnetic Duel，375 逻辑宽不贴边） */
+export function titleText() {
+  return tr('game.title');
+}
+
+/** 首页副标题文案（双语） */
+export function subtitleText() {
+  return tr('game.subtitle');
+}
 
 // ───────────────────────── 小工具 ─────────────────────────
 
@@ -201,14 +212,23 @@ export function drawMiniBead(ctx, x, y, r, color, accent) {
 // ───────────────────── 大标题 / 副标题 ─────────────────────
 
 /**
- * 「磁极对决」大标题（三主题质感）：
+ * 「磁极对决 / Polar Clash」大标题（三主题质感）：
  *  - candy：橙红渐变 + 白描边 + 深色落影（设计图糖果页）
  *  - quantum：青色霓虹发光
  *  - lab：深棕渐变 + 白描边（牛皮纸金属感）
  * @param uu 字号缩放基准（46*uu = 字号）
  */
 export function drawTitle(ctx, cx, cy, t, uu) {
-  const fs = Math.round(46 * uu);
+  const label = titleText();
+  let fs = Math.round(46 * uu);
+  // 英文标题更长：按可用宽度收缩字号（描边/阴影同走 uu 缩放路径），防贴边
+  if (typeof ctx.measureText === 'function') {
+    ctx.font = `900 ${fs}px sans-serif`;
+    // 左右安全边距：描边 8u + shadow 偏移 ~4u
+    const avail = (canvas.width - 24 * uu) / 2;
+    const w = ctx.measureText(label).width;
+    if (w > avail) fs = Math.round(fs * (avail / w));
+  }
   ctx.save();
   ctx.font = `900 ${fs}px sans-serif`;
   ctx.textAlign = 'center';
@@ -220,44 +240,49 @@ export function drawTitle(ctx, cx, cy, t, uu) {
     ctx.shadowBlur = 18 * uu;
     ctx.lineWidth = 6 * uu;
     ctx.strokeStyle = 'rgba(51,224,255,0.9)';
-    ctx.strokeText('磁极对决', cx, cy);
+    ctx.strokeText(label, cx, cy);
     ctx.restore();
     resetShadow(ctx);
     const g = ctx.createLinearGradient(0, cy - fs * 0.85, 0, cy + fs * 0.05);
     g.addColorStop(0, (t.titleGrad && t.titleGrad[0]) || '#EAFDFF');
     g.addColorStop(1, (t.titleGrad && t.titleGrad[1]) || '#7CEBFF');
     ctx.fillStyle = g;
-    ctx.fillText('磁极对决', cx, cy);
+    ctx.fillText(label, cx, cy);
   } else {
     // 深色落影（右下偏移拷贝）
     ctx.fillStyle = 'rgba(90,40,10,0.22)';
-    ctx.fillText('磁极对决', cx + 2.5 * uu, cy + 3.5 * uu);
+    ctx.fillText(label, cx + 2.5 * uu, cy + 3.5 * uu);
     // 白描边
     ctx.lineWidth = 8 * uu;
     ctx.strokeStyle = t.titleEdge || '#FFFFFF';
-    ctx.strokeText('磁极对决', cx, cy);
+    ctx.strokeText(label, cx, cy);
     // 渐变芯
     const g = ctx.createLinearGradient(0, cy - fs * 0.85, 0, cy + fs * 0.1);
     g.addColorStop(0, (t.titleGrad && t.titleGrad[0]) || '#FFB13B');
     g.addColorStop(1, (t.titleGrad && t.titleGrad[1]) || '#FF5A4E');
     ctx.fillStyle = g;
-    ctx.fillText('磁极对决', cx, cy);
+    ctx.fillText(label, cx, cy);
   }
   ctx.restore();
   resetShadow(ctx);
 }
 
-/** 副标题「— 磁吸对战棋 —」 */
+/** 副标题「— 磁吸对战棋 — / — Magnet Duel —」 */
 export function drawSubtitle(ctx, cx, cy, t, uu) {
   ctx.save();
   ctx.fillStyle = t.subtitleColor || '#FFFFFF';
   ctx.font = `bold ${Math.round(15 * uu)}px sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText('— 磁吸对战棋 —', cx, cy);
+  ctx.fillText(subtitleText(), cx, cy);
   ctx.restore();
 }
 
 // ───────────────────── 主题图文小卡 ─────────────────────
+
+/** 主题显示名（双语；id → label，显示层映射，THEMES 数据保持语言中性） */
+export function themeName(id) {
+  return { candy: tr('theme.candy'), quantum: tr('theme.quantum'), lab: tr('theme.lab') }[id] || id;
+}
 
 /**
  * 主题选择小卡：投影 + 卡底 + 缩略画面（糖果珠堆/霓虹眼/木纹工具）+ 名称 + 选中✓角标
@@ -299,11 +324,11 @@ export function drawThemeCard(ctx, x, y, w, h, id, selected, t, u) {
   // 缩略画面（卡内上部）
   const pad = 7 * u;
   drawThumb(ctx, x + pad, y + pad, w - pad * 2, h * 0.56, id, u);
-  // 名称
+  // 名称（显示层按 id 映射双语；不动 THEMES 数据的 name，保持语言中性）
   ctx.fillStyle = th.bgDark ? '#E6F5FF' : '#3E2723';
   ctx.font = `bold ${Math.round(w * 0.145)}px sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(th.name, x + w / 2, y + h * 0.85);
+  ctx.fillText(themeName(id), x + w / 2, y + h * 0.85);
   // 选中 ✓ 圆形角标（右上）
   if (selected) drawCheckBadge(ctx, x + w - 5 * u, y + 5 * u, 10.5 * u, t);
 }

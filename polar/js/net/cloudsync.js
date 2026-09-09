@@ -26,6 +26,8 @@
  */
 export const CLOUDBASE_ENV_ID = ''; // ← 正式小游戏 wx-REDACTED 关联的云开发环境（个人主体，全新无配额问题；见 design/gdd/systems/cloudsync-deploy.md §9/§11）
 
+import { tr } from '../i18n.js';
+
 const PROTOCOL_VERSION = 1;   // 对齐 room 云函数 / js/net/protocol.js
 const POLL_INTERVAL_MS = 20000;   // 对局中 sync 兜底轮询（停滞恢复 + watch 断线自愈）
 const REWATCH_MAX_MS = 15000;     // watch 重挂退避上限
@@ -34,7 +36,7 @@ export class CloudSync {
   constructor({ env, onEvent, name } = {}) {
     this.env = env || CLOUDBASE_ENV_ID;
     this.onEvent = onEvent || (() => {}); // (type, payload)；注意 RoomSession 构造时会整体替换它
-    this.name = name || '玩家';
+    this.name = name || tr('rank.player-default');
     this.db = null;
     this.openid = '';
     this.roomId = null;
@@ -63,27 +65,27 @@ export class CloudSync {
   connect() {
     return new Promise((resolve, reject) => {
       if (typeof wx === 'undefined' || !wx.cloud) {
-        reject(new Error('云开发未启用：当前环境不支持云开发（H5 请使用本地联机或单机模式）'));
+        reject(new Error(tr('net.cloud-disabled')));
         return;
       }
       if (!this.env || this.env === 'CLOUDBASE_ENV_ID') {
-        reject(new Error('云开发未启用：请先在 js/net/cloudsync.js 顶部把 CLOUDBASE_ENV_ID 改为真实环境 ID（见 design/gdd/systems/cloudsync-deploy.md）'));
+        reject(new Error(tr('net.cloud-env-missing')));
         return;
       }
       try {
         wx.cloud.init({ env: this.env, traceUser: true }); // 重复 init 同一 env 无害
       } catch (e) { /* 已初始化过则忽略 */ }
       this.db = wx.cloud.database();
-      const timeout = setTimeout(() => reject(new Error('云开发连接超时：请检查环境 ID 与 room 云函数是否已部署')), 6000);
+      const timeout = setTimeout(() => reject(new Error(tr('net.cloud-timeout-env'))), 6000);
       this._call('ping')
         .then((r) => {
           clearTimeout(timeout);
           if (r && r.ok && r.proto === PROTOCOL_VERSION) resolve();
-          else reject(new Error('云开发协议版本不兼容（proto=' + (r && r.proto) + '），请重新部署 room 云函数'));
+          else reject(new Error(tr('net.cloud-proto-mismatch', { p: (r && r.proto) })));
         })
         .catch((e) => {
           clearTimeout(timeout);
-          reject(new Error('云开发连接失败：' + this._err(e)));
+          reject(new Error(tr('net.cloud-connect-fail', { e: this._err(e) })));
         });
     });
   }
@@ -95,7 +97,7 @@ export class CloudSync {
     this._reset();
     this._call('host', { mode, name: this.name })
       .then((r) => this._afterEnter(r))
-      .catch((e) => this._fail('创建房间失败：' + this._err(e)));
+      .catch((e) => this._fail(tr('net.create-room-fail', { e: this._err(e) })));
   }
 
   /** 加入房间（对应 C2S.JOIN）。已在座时幂等重连（含对局中，云端自动回放 started/moveAck） */
@@ -103,7 +105,7 @@ export class CloudSync {
     this._reset();
     this._call('join', { roomId, name: this.name })
       .then((r) => this._afterEnter(r))
-      .catch((e) => this._fail('加入房间失败：' + this._err(e)));
+      .catch((e) => this._fail(tr('net.join-room-fail', { e: this._err(e) })));
   }
 
   /** 房主切换 AI 位（对应 C2S.SET_AI）。结果经 watch/响应 → roster 事件 */
@@ -112,9 +114,9 @@ export class CloudSync {
     this._call('setAi', { roomId: this.roomId, seat, on })
       .then((r) => {
         if (r && r.ok) this._applyDoc(r);
-        else this._fail((r && r.reason) || '切换 AI 失败');
+        else this._fail((r && r.reason) || tr('net.set-ai-fail'));
       })
-      .catch((e) => this._fail('切换 AI 失败：' + this._err(e)));
+      .catch((e) => this._fail(tr('net.set-ai-fail-err', { e: this._err(e) })));
   }
 
   /** 离房（对应 C2S.LEAVE）。对局中云端会把该座位转为 AI 接管 */
@@ -156,13 +158,13 @@ export class CloudSync {
           else {
             this.isHost = true; // 开局失败回大厅态
             this._started = false;
-            this._fail((r && r.reason) || '开局失败');
+            this._fail((r && r.reason) || tr('net.start-fail'));
           }
         })
         .catch((e) => {
           this.isHost = true;
           this._started = false;
-          this._fail('开局失败：' + this._err(e));
+          this._fail(tr('net.start-fail-err', { e: this._err(e) }));
         });
       return;
     }
@@ -262,6 +264,8 @@ export class CloudSync {
     this._call('sync', { roomId: this.roomId })
       .then((r) => {
         if (r && r.ok) this._applyDoc(r);
+        // ⚠️ 硬耦合：服务端 reason 的「不存在|过期」中文为此解散判定依赖，
+        //    本行正则不可翻译成英文（服务端 reason 保持中文原文，见 i18n 设计约束）。
         else if (r && /不存在|过期/.test((r && r.reason) || '')) {
           this._fail(r.reason);
           this._teardown(); // 房间已解散：停止 watch/轮询
@@ -274,7 +278,7 @@ export class CloudSync {
 
   _afterEnter(r) {
     if (!r || !r.ok) {
-      this._fail((r && r.reason) || '进入房间失败');
+      this._fail((r && r.reason) || tr('net.enter-room-fail'));
       return;
     }
     this._closed = false;
@@ -371,7 +375,7 @@ export class CloudSync {
   _call(action, data) {
     return new Promise((resolve, reject) => {
       if (typeof wx === 'undefined' || !wx.cloud) {
-        reject(new Error('云开发未启用'));
+        reject(new Error(tr('net.cloud-disabled')));
         return;
       }
       wx.cloud.callFunction({ name: 'room', data: Object.assign({ action }, data || {}) })
@@ -386,7 +390,7 @@ export class CloudSync {
       return {
         seat: i + 1,
         type: s.type,
-        name: s.nick || (s.type === 'ai' ? 'AI·' + (i + 1) : '玩家' + (i + 1)),
+        name: s.nick || (s.type === 'ai' ? tr('lobby.seat.ai') + '·' + (i + 1) : tr('rank.player-default') + (i + 1)),
         host: !!(s.openid && s.openid === doc.hostOpenid),
       };
     });
