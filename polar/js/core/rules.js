@@ -90,7 +90,7 @@ export function createGame(playerCount, mode = 'classic', seed = Date.now(), pla
 
   const obstacles = solo ? (makeObstacles(cols, rows, boardCfg.obstacles[idx], mulberry32(seed)) || []) : [];
 
-  return {
+  const game = {
     mode,
     playerCount: n,
     cols,
@@ -115,8 +115,11 @@ export function createGame(playerCount, mode = 'classic', seed = Date.now(), pla
     boardMax: obstacles.length, // classic 防停滞：盘面棋子历史最高（每次安全落子刷新）
     stall: 0, // 距上次刷新 boardMax 的连续手牌数；达 CLASSIC_STALL_LIMIT 判终局
     history: [],
+    sigs: [], // classic 防死循环：最近若干手局面指纹（见 stateSig/settle）
     version: 1,
   };
+  game.sigs = [stateSig(game)]; // 含初始局面，使周期检测从第一手起即可精确判定
+  return game;
 }
 
 export function setBoardBoundsFor(cols, rows) {
@@ -189,14 +192,7 @@ export function placePiece(game, x, y) {
     // （清零可顺带清掉旧版本存档对局残留的 stall 计数，避免恢复旧局时误触发僵局终局）
     g.stall = shouldCountStall(g) ? (game.stall || 0) + 1 : 0;
     g.turn = nextTurn(g);
-    const verdict = judge(g, owner);
-    if (verdict.over) {
-      g.over = true;
-      g.endReason = verdict.reason;
-      g.winner = verdict.winner;
-      g.ranking = computeRanking(g);
-    }
-    return { ok: true, foul: true, game: g, result };
+    return { ok: true, foul: true, game: settle(g, game, owner), result };
   }
 
   const lootCount = game.mode === 'loot' ? result.snapIds.length : 0;
@@ -232,16 +228,7 @@ export function placePiece(game, x, y) {
 
   g.turn = nextTurn(g);
 
-  // 胜负判定
-  const verdict = judge(g, owner);
-  if (verdict.over) {
-    g.over = true;
-    g.endReason = verdict.reason;
-    g.winner = verdict.winner;
-    g.ranking = computeRanking(g);
-  }
-
-  return { ok: true, game: g, result };
+  return { ok: true, game: settle(g, game, owner), result };
 }
 
 /** 统计某 owner 本回合从盘上消失的棋子数（classic 被吸走 / loot 被吃） */
@@ -276,6 +263,49 @@ function nextTurn(g) {
  */
 function shouldCountStall(g) {
   return g.mode === 'classic' && g.playerCount % 2 !== 0;
+}
+
+/**
+ * 局面指纹：classic 下「盘面归属+坐标、各家手牌、该谁走」完全决定后续走向，
+ * 故用它的哈希代表一个局面状态。棋子 id 不参与（classic 只用于 loot 免疫，不影响走向）。
+ * 双 32 位累加降低碰撞（碰撞只会把对局提前判僵局，窗口仅最近 N 手，概率可忽略）。
+ */
+function stateSig(g) {
+  const b = g.board.map((p) => p.owner + '@' + p.x + ',' + p.y).sort().join(';');
+  const s = b + '|' + g.hands.join(',') + '|' + g.turn;
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 16777619) >>> 0;
+    h2 = Math.imul(h2 + c + i, 2246822519) >>> 0;
+  }
+  return h1.toString(36) + '.' + h2.toString(36);
+}
+
+/**
+ * 落子收尾（两条分支共用）：防死循环的精确周期检测 + 胜负裁决 + 排名。
+ *
+ * 周期检测（2026-09-10 修复）：收官阶段「安全格=0」时，若触磁方每次都挑吸附最少的落点，
+ * 只开出一个洞、对手下一手正好补回原处，局面会精确复现 → 双方零进展死循环、被锁方手牌无限膨胀
+ * （真机 h5 实测：P2 连 3 手落在同一格 (1,0)，手牌 12:6 且对局永不自止）。
+ * 旧的「盘面高水位」代理判定要连等 CLASSIC_STALL×人数 手才触发，且对偶数人数会误伤故被豁免，
+ * 真死循环在 2/4 人局将永不自止。现在改为精确判定：局面在最近 CLASSIC_CYCLE_WINDOW 手内复现
+ * 即判零进展僵局（终局理由沿用 stall，剩余手牌少者胜）——不误伤正常对局，且 2/3/4 人一律生效。
+ * CLASSIC_STALL 高水位兜底保留：AI 有随机噪声，理论上可能出现无重复的长期游走。
+ */
+function settle(g, game, owner) {
+  const sig = stateSig(g);
+  const cyc = g.mode === 'classic' && (game.sigs || []).includes(sig);
+  g.sigs = [...(game.sigs || []), sig].slice(-CONFIG.CLASSIC_CYCLE_WINDOW);
+  const verdict = cyc ? { over: true, reason: 'stall', winner: fewestHands(g) } : judge(g, owner);
+  if (verdict.over) {
+    g.over = true;
+    g.endReason = verdict.reason;
+    g.winner = verdict.winner;
+    g.ranking = computeRanking(g);
+  }
+  return g;
 }
 
 /**
