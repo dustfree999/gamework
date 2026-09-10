@@ -1,0 +1,171 @@
+{
+  "_comment": "Polar Clash (H5 offline) operational parameters. Single source of truth: the build inlines this object into window.gameConfig so the runtime never hardcodes business values.",
+  "meta": {
+    "gameId": "polarclash",
+    "title": { "zh": "磁极对决", "en": "Polar Clash" },
+    "subtitle": { "zh": "磁吸对战棋", "en": "Magnet Duel" }
+  },
+  "viewport": {
+    "designWidth": 402,
+    "designHeight": 619,
+    "guardTopPct": 0.05,
+    "guardBottomPct": 0.05,
+    "cornerClearPx": 26,
+    "minTapSizePx": 40,
+    "_maxPixelRatio": "render at the screen's native density so glyphs and beads stay crisp; the adaptive block below only kicks in if a device cannot hold the frame budget.",
+    "maxPixelRatio": 3,
+    "_adaptiveQuality": "sampleFrames = ring buffer size; minFrames = frames before judging; slowFrameMs = median budget (22ms ~ 45fps); steps = successive caps to fall back to.",
+    "adaptiveQuality": {
+      "enabled": true,
+      "sampleFrames": 60,
+      "minFrames": 90,
+      "checkEvery": 30,
+      "slowFrameMs": 22,
+      "steps": [2, 1.5]
+    }
+  },
+  "locale": {
+    "supported": ["zh", "en"],
+    "fallback": "en",
+    "_followSystem": "false = always start in English and let the player switch; true = sniff the device locale (zh devices start in Chinese). English remains the fallback either way.",
+    "followSystem": false
+  },
+  "physics": {
+    "snapRadius": 1.65,
+    "chainDepth": 8,
+    "snapSpeed": 10
+  },
+  "rules": {
+    "classicStall": 8,
+    "classicCycleWindow": 16,
+    "maxPlayers": 4
+  },
+  "board": {
+    "classic": {
+      "cols": [8, 9, 11],
+      "rows": [9, 11, 13],
+      "pieces": [15, 12, 12]
+    },
+    "solo": {
+      "cols": [10],
+      "rows": [12],
+      "obstacles": [10],
+      "reachMin": 11,
+      "reachMax": 16,
+      "reachTarget": 13.5,
+      "obstacleAttempts": 40
+    }
+  },
+  "ai": {
+    "thinkMin": 0.7,
+    "thinkJitter": 0.6,
+    "tween": 0.4,
+    "noise": { "easy": 60, "normal": 40, "hard": 12 },
+    "randomP": { "easy": 0.3, "normal": 0, "hard": 0 },
+    "hardLookahead": 10
+  },
+  "scoring": {
+    "soloPointPerSafeDrop": 1,
+    "beadValue": 1
+  },
+  "audio": {
+    "enabled": true,
+    "masterVolume": 0.45
+  },
+  "anim": {
+    "snapChainDelayMs": 80,
+    "dropFlyMs": 190,
+    "reclaimFlyMs": 340,
+    "turnBannerMs": 820,
+    "settleBounceMs": 220
+  },
+  "storage": {
+    "prefix": "polarclash_",
+    "keys": { "lang": "lang", "theme": "theme", "stats": "stats", "agreed": "agreed", "best": "best" },
+    "maxValueBytes": 262144
+  },
+  "themes": [
+    {
+      "id": "candy",
+      "name": { "zh": "糖果风暴", "en": "Candy Storm" },
+      "dark": false,
+      "bg": ["#FFF3DC", "#FFE0BF"],
+      "boardBg": "#FBF0DC",
+      "cellTints": ["#FFF8E9", "#FFEFD3", "#FFE4EA", "#E1F3FB", "#E7F6E4"],
+      "cellLine": "rgba(160,120,70,0.22)",
+      "boardEdge": "#8A5A34",
+      "text": "#4A3123",
+      "muted": "#8A7358",
+      "titleGrad": ["#FFB13B", "#FF5A4E"],
+      "titleEdge": "#FFFFFF",
+      "subtitle": "#FFF6E6",
+      "primary": "#FF6B35",
+      "accent": "#FF9F2E",
+      "btnGrad": ["#FF8F9B", "#F0506A"],
+      "btnText": "#FFFFFF",
+      "bannerGrad": ["#FF7668", "#E8403F"],
+      "cardBg": "rgba(255,252,244,0.94)",
+      "warn": "#FFB300",
+      "deco": "orbs",
+      "orbs": ["#FF5A5F", "#FFC93C", "#4FC3F7", "#66BB6A", "#FF8A65"],
+      "bead": ["#FF5A5F", "#00B8D4", "#2ECC71", "#F1C40F"],
+      "beadDark": ["#C93B40", "#008FA8", "#1FA85A", "#C9A10A"],
+      "beadLight": ["#FFB0B3", "#8DE5F2", "#9FF0C4", "#FFE88A"]
+    },
+    {
+      "id": "quantum",
+      "name": { "zh": "量子棋盘格", "en": "Quantum Grid" },
+      "dark": true,
+      "bg": ["#07182B", "#0E2E4A"],
+      "boardBg": "#0C2740",
+      "cellTints": ["#0F2E4C", "#0C2740", "#123A5E", "#0A2138"],
+      "cellLine": "rgba(51,224,255,0.42)",
+      "boardEdge": "#33E0FF",
+      "text": "#E6F5FF",
+      "muted": "#8FB6CC",
+      "titleGrad": ["#EAFDFF", "#7CEBFF"],
+      "titleEdge": "#0A2A44",
+      "subtitle": "#8FF3FF",
+      "primary": "#33E0FF",
+      "accent": "#FFA940",
+      "btnGrad": ["#7CEBFF", "#1B9AD6"],
+      "btnText": "#062033",
+      "bannerGrad": ["#3FB6FF", "#1E6FD0"],
+      "cardBg": "rgba(13,40,64,0.86)",
+      "warn": "#FFB300",
+      "deco": "particles",
+      "orbs": ["#33E0FF", "#4FC3F7", "#2EFF8F", "#FFD23F", "#FF7A45"],
+      "bead": ["#FF5A5F", "#00E5FF", "#2EFF8F", "#FFD23F"],
+      "beadDark": ["#B33A3E", "#00A8BF", "#1FB869", "#C9A10A"],
+      "beadLight": ["#FF9EA1", "#9CF3FF", "#A6FFD0", "#FFEEA8"]
+    },
+    {
+      "id": "lab",
+      "name": { "zh": "实验室桌面", "en": "Lab Desk" },
+      "dark": false,
+      "bg": ["#EFE7CF", "#E5DCC3"],
+      "boardBg": "#DCC9A0",
+      "cellTints": ["#EAD6AE", "#E3CCA0", "#F0DDB9", "#E6D2A8", "#DFC496"],
+      "cellLine": "rgba(110,86,52,0.28)",
+      "boardEdge": "#6B5638",
+      "text": "#3A332B",
+      "muted": "#7C7060",
+      "titleGrad": ["#6B4A2E", "#43301F"],
+      "titleEdge": "#FFFDF4",
+      "subtitle": "#5C5244",
+      "primary": "#E07A2A",
+      "accent": "#E0862A",
+      "btnGrad": ["#B3AC9C", "#6E6759"],
+      "btnText": "#FFFDF4",
+      "bannerGrad": ["#D8D1C1", "#948C7A"],
+      "cardBg": "rgba(250,243,224,0.95)",
+      "warn": "#E07A2A",
+      "deco": "kraft",
+      "orbs": [],
+      "bead": ["#C8553D", "#3D7EA6", "#5B8C4A", "#D6A42B"],
+      "beadDark": ["#8F3D2E", "#2C5D7E", "#3E6333", "#A87E1C"],
+      "beadLight": ["#E89C86", "#90B9D2", "#A3C293", "#EFCF7C"]
+    }
+  ],
+  "defaultTheme": "candy"
+}

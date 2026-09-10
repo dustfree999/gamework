@@ -1,0 +1,4150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#F4E9D8">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="description" content="Polar Clash - a turn-based magnet board duel. Drop beads, dodge the snap, empty your hand first.">
+<title>Polar Clash</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#F4E9D8;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    -webkit-touch-callout:none;touch-action:none;overscroll-behavior:none}
+  #stage{display:block;position:fixed;left:0;top:0;touch-action:none;outline:none}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<script>
+window.__POLAR_BUILTIN_CONFIG__ = {
+  "_comment": "Polar Clash (H5 offline) operational parameters. Single source of truth: the build inlines this object into window.gameConfig so the runtime never hardcodes business values.",
+  "meta": {
+    "gameId": "polarclash",
+    "title": {
+      "zh": "磁极对决",
+      "en": "Polar Clash"
+    },
+    "subtitle": {
+      "zh": "磁吸对战棋",
+      "en": "Magnet Duel"
+    }
+  },
+  "viewport": {
+    "designWidth": 402,
+    "designHeight": 619,
+    "guardTopPct": 0.05,
+    "guardBottomPct": 0.05,
+    "cornerClearPx": 26,
+    "minTapSizePx": 40,
+    "_maxPixelRatio": "render at the screen's native density so glyphs and beads stay crisp; the adaptive block below only kicks in if a device cannot hold the frame budget.",
+    "maxPixelRatio": 3,
+    "_adaptiveQuality": "sampleFrames = ring buffer size; minFrames = frames before judging; slowFrameMs = median budget (22ms ~ 45fps); steps = successive caps to fall back to.",
+    "adaptiveQuality": {
+      "enabled": true,
+      "sampleFrames": 60,
+      "minFrames": 90,
+      "checkEvery": 30,
+      "slowFrameMs": 22,
+      "steps": [
+        2,
+        1.5
+      ]
+    }
+  },
+  "locale": {
+    "supported": [
+      "zh",
+      "en"
+    ],
+    "fallback": "en",
+    "_followSystem": "false = always start in English and let the player switch; true = sniff the device locale (zh devices start in Chinese). English remains the fallback either way.",
+    "followSystem": false
+  },
+  "physics": {
+    "snapRadius": 1.65,
+    "chainDepth": 8,
+    "snapSpeed": 10
+  },
+  "rules": {
+    "classicStall": 8,
+    "classicCycleWindow": 16,
+    "maxPlayers": 4
+  },
+  "board": {
+    "classic": {
+      "cols": [
+        8,
+        9,
+        11
+      ],
+      "rows": [
+        9,
+        11,
+        13
+      ],
+      "pieces": [
+        15,
+        12,
+        12
+      ]
+    },
+    "solo": {
+      "cols": [
+        10
+      ],
+      "rows": [
+        12
+      ],
+      "obstacles": [
+        10
+      ],
+      "reachMin": 11,
+      "reachMax": 16,
+      "reachTarget": 13.5,
+      "obstacleAttempts": 40
+    }
+  },
+  "ai": {
+    "thinkMin": 0.7,
+    "thinkJitter": 0.6,
+    "tween": 0.4,
+    "noise": {
+      "easy": 60,
+      "normal": 40,
+      "hard": 12
+    },
+    "randomP": {
+      "easy": 0.3,
+      "normal": 0,
+      "hard": 0
+    },
+    "hardLookahead": 10
+  },
+  "scoring": {
+    "soloPointPerSafeDrop": 1,
+    "beadValue": 1
+  },
+  "audio": {
+    "enabled": true,
+    "masterVolume": 0.45
+  },
+  "anim": {
+    "snapChainDelayMs": 80,
+    "dropFlyMs": 190,
+    "reclaimFlyMs": 340,
+    "turnBannerMs": 820,
+    "settleBounceMs": 220
+  },
+  "storage": {
+    "prefix": "polarclash_",
+    "keys": {
+      "lang": "lang",
+      "theme": "theme",
+      "stats": "stats",
+      "agreed": "agreed",
+      "best": "best"
+    },
+    "maxValueBytes": 262144
+  },
+  "themes": [
+    {
+      "id": "candy",
+      "name": {
+        "zh": "糖果风暴",
+        "en": "Candy Storm"
+      },
+      "dark": false,
+      "bg": [
+        "#FFF3DC",
+        "#FFE0BF"
+      ],
+      "boardBg": "#FBF0DC",
+      "cellTints": [
+        "#FFF8E9",
+        "#FFEFD3",
+        "#FFE4EA",
+        "#E1F3FB",
+        "#E7F6E4"
+      ],
+      "cellLine": "rgba(160,120,70,0.22)",
+      "boardEdge": "#8A5A34",
+      "text": "#4A3123",
+      "muted": "#8A7358",
+      "titleGrad": [
+        "#FFB13B",
+        "#FF5A4E"
+      ],
+      "titleEdge": "#FFFFFF",
+      "subtitle": "#FFF6E6",
+      "primary": "#FF6B35",
+      "accent": "#FF9F2E",
+      "btnGrad": [
+        "#FF8F9B",
+        "#F0506A"
+      ],
+      "btnText": "#FFFFFF",
+      "bannerGrad": [
+        "#FF7668",
+        "#E8403F"
+      ],
+      "cardBg": "rgba(255,252,244,0.94)",
+      "warn": "#FFB300",
+      "deco": "orbs",
+      "orbs": [
+        "#FF5A5F",
+        "#FFC93C",
+        "#4FC3F7",
+        "#66BB6A",
+        "#FF8A65"
+      ],
+      "bead": [
+        "#FF5A5F",
+        "#00B8D4",
+        "#2ECC71",
+        "#F1C40F"
+      ],
+      "beadDark": [
+        "#C93B40",
+        "#008FA8",
+        "#1FA85A",
+        "#C9A10A"
+      ],
+      "beadLight": [
+        "#FFB0B3",
+        "#8DE5F2",
+        "#9FF0C4",
+        "#FFE88A"
+      ]
+    },
+    {
+      "id": "quantum",
+      "name": {
+        "zh": "量子棋盘格",
+        "en": "Quantum Grid"
+      },
+      "dark": true,
+      "bg": [
+        "#07182B",
+        "#0E2E4A"
+      ],
+      "boardBg": "#0C2740",
+      "cellTints": [
+        "#0F2E4C",
+        "#0C2740",
+        "#123A5E",
+        "#0A2138"
+      ],
+      "cellLine": "rgba(51,224,255,0.42)",
+      "boardEdge": "#33E0FF",
+      "text": "#E6F5FF",
+      "muted": "#8FB6CC",
+      "titleGrad": [
+        "#EAFDFF",
+        "#7CEBFF"
+      ],
+      "titleEdge": "#0A2A44",
+      "subtitle": "#8FF3FF",
+      "primary": "#33E0FF",
+      "accent": "#FFA940",
+      "btnGrad": [
+        "#7CEBFF",
+        "#1B9AD6"
+      ],
+      "btnText": "#062033",
+      "bannerGrad": [
+        "#3FB6FF",
+        "#1E6FD0"
+      ],
+      "cardBg": "rgba(13,40,64,0.86)",
+      "warn": "#FFB300",
+      "deco": "particles",
+      "orbs": [
+        "#33E0FF",
+        "#4FC3F7",
+        "#2EFF8F",
+        "#FFD23F",
+        "#FF7A45"
+      ],
+      "bead": [
+        "#FF5A5F",
+        "#00E5FF",
+        "#2EFF8F",
+        "#FFD23F"
+      ],
+      "beadDark": [
+        "#B33A3E",
+        "#00A8BF",
+        "#1FB869",
+        "#C9A10A"
+      ],
+      "beadLight": [
+        "#FF9EA1",
+        "#9CF3FF",
+        "#A6FFD0",
+        "#FFEEA8"
+      ]
+    },
+    {
+      "id": "lab",
+      "name": {
+        "zh": "实验室桌面",
+        "en": "Lab Desk"
+      },
+      "dark": false,
+      "bg": [
+        "#EFE7CF",
+        "#E5DCC3"
+      ],
+      "boardBg": "#DCC9A0",
+      "cellTints": [
+        "#EAD6AE",
+        "#E3CCA0",
+        "#F0DDB9",
+        "#E6D2A8",
+        "#DFC496"
+      ],
+      "cellLine": "rgba(110,86,52,0.28)",
+      "boardEdge": "#6B5638",
+      "text": "#3A332B",
+      "muted": "#7C7060",
+      "titleGrad": [
+        "#6B4A2E",
+        "#43301F"
+      ],
+      "titleEdge": "#FFFDF4",
+      "subtitle": "#5C5244",
+      "primary": "#E07A2A",
+      "accent": "#E0862A",
+      "btnGrad": [
+        "#B3AC9C",
+        "#6E6759"
+      ],
+      "btnText": "#FFFDF4",
+      "bannerGrad": [
+        "#D8D1C1",
+        "#948C7A"
+      ],
+      "cardBg": "rgba(250,243,224,0.95)",
+      "warn": "#E07A2A",
+      "deco": "kraft",
+      "orbs": [],
+      "bead": [
+        "#C8553D",
+        "#3D7EA6",
+        "#5B8C4A",
+        "#D6A42B"
+      ],
+      "beadDark": [
+        "#8F3D2E",
+        "#2C5D7E",
+        "#3E6333",
+        "#A87E1C"
+      ],
+      "beadLight": [
+        "#E89C86",
+        "#90B9D2",
+        "#A3C293",
+        "#EFCF7C"
+      ]
+    }
+  ],
+  "defaultTheme": "candy"
+};
+(function(){
+"use strict";
+/* ===== 01-core.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §1  CORE — platform contract, config access, storage, viewport, math
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Host contract (per platform spec §9):
+     window.gameConfig  — get/set of all runtime parameters (game_config.json)
+     window.lib.getAsset(assetId) — dynamic resource loading
+     bridge.viewport.getSafeArea() — safe-area insets
+     bridge.storage — cross-device key/value store
+   Every one of these is optional at runtime: the package must stay fully playable
+   offline in a bare WebView, so each call site has a local fallback.            */
+
+function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+
+function deepMerge(base, over) {
+  var out = {};
+  var k;
+  if (isObj(base)) { for (k in base) { if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k]; } }
+  if (isObj(over)) {
+    for (k in over) {
+      if (!Object.prototype.hasOwnProperty.call(over, k)) continue;
+      out[k] = (isObj(out[k]) && isObj(over[k])) ? deepMerge(out[k], over[k]) : over[k];
+    }
+  }
+  return out;
+}
+
+/* The object below is emitted at build time from game_config.json (see
+   build_h5_polar.py) — it is not authored here, so every business value lives in
+   exactly one place and nothing is hardcoded in the game code. */
+var BUILTIN_CONFIG = window.__POLAR_BUILTIN_CONFIG__ || {};
+try { delete window.__POLAR_BUILTIN_CONFIG__; } catch (e) { /* leave it */ }
+
+var HOST_CONFIG = isObj(window.gameConfig) ? window.gameConfig : null;
+var CONFIG = deepMerge(BUILTIN_CONFIG, HOST_CONFIG);
+
+/* get/set accessors so operational tuning can be driven through the documented
+   window.gameConfig object (dotted path, e.g. gameConfig.get('physics.snapRadius')). */
+function cfgGet(path, dflt) {
+  var cur = CONFIG;
+  var parts = String(path).split('.');
+  for (var i = 0; i < parts.length; i += 1) {
+    if (!isObj(cur) || !(parts[i] in cur)) return dflt;
+    cur = cur[parts[i]];
+  }
+  return cur === undefined ? dflt : cur;
+}
+function cfgSet(path, value) {
+  var parts = String(path).split('.');
+  var cur = CONFIG;
+  for (var i = 0; i < parts.length - 1; i += 1) {
+    if (!isObj(cur[parts[i]])) cur[parts[i]] = {};
+    cur = cur[parts[i]];
+  }
+  cur[parts[parts.length - 1]] = value;
+  return value;
+}
+
+window.gameConfig = CONFIG;
+/* Non-enumerable so a config dump stays clean for auditors. */
+try {
+  Object.defineProperty(window.gameConfig, 'get', { value: cfgGet, enumerable: false });
+  Object.defineProperty(window.gameConfig, 'set', { value: cfgSet, enumerable: false });
+  Object.defineProperty(window.gameConfig, 'source', { value: 'game_config.json', enumerable: false });
+} catch (e) { /* frozen host object: keep plain access */ }
+
+/* Late override: a served build can refine parameters from the sidecar file
+   without a rebuild. Host-provided values keep priority. */
+function refreshConfigFromSidecar() {
+  try {
+    if (typeof fetch !== 'function') return;
+    fetch('game_config.json', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!isObj(j)) return;
+        var host = isObj(HOST_CONFIG) ? HOST_CONFIG : {};
+        var merged = deepMerge(deepMerge(BUILTIN_CONFIG, j), host);
+        for (var k in merged) {
+          if (Object.prototype.hasOwnProperty.call(merged, k)) CONFIG[k] = merged[k];
+        }
+      })
+      .catch(function () { /* offline: built-in values stand */ });
+  } catch (e) { /* no fetch: built-in values stand */ }
+}
+
+/* ── math ────────────────────────────────────────────────────────────────── */
+var TAU = Math.PI * 2;
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeInCubic(t) { return t * t * t; }
+function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+function easeOutBack(t) {
+  var c1 = 1.70158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+function easeOutElastic(t) {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  var c4 = TAU / 3;
+  return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+}
+function dist2(ax, ay, bx, by) { var dx = ax - bx, dy = ay - by; return Math.sqrt(dx * dx + dy * dy); }
+
+/* Deterministic 32-bit PRNG — solo layouts are reproducible from a seed. */
+function mulberry32(seed) {
+  var a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function fmt(tpl, vars) {
+  var out = String(tpl);
+  if (vars) {
+    for (var k in vars) {
+      if (Object.prototype.hasOwnProperty.call(vars, k)) out = out.split('{' + k + '}').join(String(vars[k]));
+    }
+  }
+  return out;
+}
+
+/* ── storage: bridge.storage when present, local fallback otherwise ─────── */
+var STORE = (function () {
+  var prefix = cfgGet('storage.prefix', 'polarclash_');
+  var keys = cfgGet('storage.keys', {});
+  var maxBytes = cfgGet('storage.maxValueBytes', 262144);
+  var bridge = window.bridge;
+
+  function fullKey(name) { return prefix + (keys[name] || name); }
+
+  function bridgeGet(k) {
+    try {
+      if (bridge && bridge.storage && typeof bridge.storage.getItem === 'function') return bridge.storage.getItem(k);
+      if (bridge && bridge.storage && typeof bridge.storage.get === 'function') return bridge.storage.get(k);
+    } catch (e) { /* fall through */ }
+    return undefined;
+  }
+  function bridgeSet(k, v) {
+    try {
+      if (bridge && bridge.storage && typeof bridge.storage.setItem === 'function') { bridge.storage.setItem(k, v); return true; }
+      if (bridge && bridge.storage && typeof bridge.storage.set === 'function') { bridge.storage.set(k, v); return true; }
+    } catch (e) { /* fall through */ }
+    return false;
+  }
+
+  function get(name, dflt) {
+    var k = fullKey(name);
+    var raw = bridgeGet(k);
+    if (raw === undefined || raw === null || raw === '') {
+      try { raw = window.localStorage.getItem(k); } catch (e) { raw = null; }
+    }
+    if (raw === undefined || raw === null || raw === '') return dflt;
+    try { return JSON.parse(raw); } catch (e) { return typeof raw === 'string' ? raw : dflt; }
+  }
+
+  function set(name, value) {
+    var k = fullKey(name);
+    var raw;
+    try { raw = JSON.stringify(value); } catch (e) { return false; }
+    /* Platform quota: one key must stay under 256KB. Oversized writes are dropped
+       rather than risking the whole store. */
+    if (raw.length > maxBytes) return false;
+    if (bridgeSet(k, raw)) return true;
+    try { window.localStorage.setItem(k, raw); return true; } catch (e) { return false; }
+  }
+
+  return { get: get, set: set, key: fullKey };
+})();
+
+/* ── viewport / safe area / stage layout ────────────────────────────────── */
+function readSafeArea() {
+  var out = { top: 0, right: 0, bottom: 0, left: 0, known: false };
+  try {
+    var b = window.bridge;
+    if (b && b.viewport && typeof b.viewport.getSafeArea === 'function') {
+      var sa = b.viewport.getSafeArea();
+      if (isObj(sa)) {
+        out.top = Number(sa.top) || 0;
+        out.right = Number(sa.right) || 0;
+        out.bottom = Number(sa.bottom) || 0;
+        out.left = Number(sa.left) || 0;
+        /* Some hosts report a full rect instead of insets. */
+        if (sa.height && sa.y !== undefined && !sa.top && !sa.bottom) {
+          out.top = Number(sa.y) || 0;
+          out.bottom = Math.max(0, (Number(window.innerHeight) || 0) - (Number(sa.y) + Number(sa.height)));
+        }
+        out.known = true;
+      }
+    }
+  } catch (e) { /* host without the bridge: treat as no insets */ }
+  return out;
+}
+
+/* Probing CSS env() insets needs a real element; done once at boot. */
+function cssEnvInsets() {
+  var out = { top: 0, right: 0, bottom: 0, left: 0 };
+  try {
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;' +
+      'padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);' +
+      'padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);';
+    document.body.appendChild(probe);
+    var cs = window.getComputedStyle(probe);
+    out.top = parseFloat(cs.paddingTop) || 0;
+    out.right = parseFloat(cs.paddingRight) || 0;
+    out.bottom = parseFloat(cs.paddingBottom) || 0;
+    out.left = parseFloat(cs.paddingLeft) || 0;
+    document.body.removeChild(probe);
+  } catch (e) { /* keep zeros */ }
+  return out;
+}
+
+var LAY = {
+  DW: cfgGet('viewport.designWidth', 402),
+  DH: cfgGet('viewport.designHeight', 619),
+  scale: 1, stageX: 0, stageY: 0, stageW: 402, stageH: 619,
+  contentTop: 0, contentBottom: 0, contentLeft: 0, contentRight: 0,
+  corner: cfgGet('viewport.cornerClearPx', 26),
+  safe: { top: 0, right: 0, bottom: 0, left: 0 }
+};
+
+function relayout() {
+  var vw = Math.max(1, window.innerWidth || 1);
+  var vh = Math.max(1, window.innerHeight || 1);
+  var scale = Math.min(vw / LAY.DW, vh / LAY.DH);
+  LAY.scale = scale;
+  LAY.stageW = LAY.DW * scale;
+  LAY.stageH = LAY.DH * scale;
+  LAY.stageX = (vw - LAY.stageW) / 2;
+  LAY.stageY = (vh - LAY.stageH) / 2;
+
+  var hostSa = readSafeArea();
+  var cssSa = hostSa.known ? { top: 0, right: 0, bottom: 0, left: 0 } : cssEnvInsets();
+  LAY.safe = {
+    top: hostSa.top || cssSa.top,
+    right: Math.max(hostSa.right || 0, cssSa.right),
+    bottom: Math.max(hostSa.bottom || 0, cssSa.bottom),
+    left: Math.max(hostSa.left || 0, cssSa.left)
+  };
+
+  /* Insets are viewport-relative; only the part that eats into the stage counts. */
+  function inside(px, origin, span) { return clamp((px - origin) / scale, 0, span); }
+  var gTop = LAY.DH * cfgGet('viewport.guardTopPct', 0.05);
+  var gBottom = LAY.DH * cfgGet('viewport.guardBottomPct', 0.05);
+  var sTop = inside(LAY.safe.top, LAY.stageY, LAY.DH);
+  var sBottom = inside(LAY.safe.bottom, LAY.stageY, LAY.DH);
+  var sLeft = inside(LAY.safe.left, LAY.stageX, LAY.DW);
+  var sRight = inside(LAY.safe.right, LAY.stageX, LAY.DW);
+
+  /* Corner clearance: rounded display corners must never host a tap target, so the
+     side margin is the larger of the base gutter, the safe inset and half the corner radius. */
+  var base = 16;
+  LAY.contentTop = gTop + sTop;
+  LAY.contentBottom = LAY.DH - gBottom - sBottom;
+  LAY.contentLeft = Math.max(base + sLeft, LAY.corner * 0.5);
+  LAY.contentRight = LAY.DW - Math.max(base + sRight, LAY.corner * 0.5);
+
+  var canvas = document.getElementById('stage');
+  var dpr = effectivePixelRatio();
+  canvas.width = Math.round(vw * dpr);
+  canvas.height = Math.round(vh * dpr);
+  canvas.style.width = vw + 'px';
+  canvas.style.height = vh + 'px';
+  CTX = canvas.getContext('2d');
+  CTX.setTransform(dpr, 0, 0, dpr, 0, 0);
+  VIEW = { vw: vw, vh: vh, dpr: dpr };
+}
+
+/* ── render quality ─────────────────────────────────────────────────────── */
+/* The platform cannot guarantee a single GPU/engine build, so the game renders at
+   the screen's native density for crispness and steps that down only if a device
+   cannot hold the frame budget. The policy below is pure and unit-testable. */
+var QUALITY = {
+  cap: cfgGet('viewport.maxPixelRatio', 3),
+  step: 0,
+  samples: [],
+  frames: 0
+};
+
+function effectivePixelRatio() {
+  return Math.min(window.devicePixelRatio || 1, QUALITY.cap);
+}
+
+function medianOf(samples) {
+  if (!samples.length) return 0;
+  var s = samples.slice().sort(function (a, b) { return a - b; });
+  return s[Math.floor(s.length / 2)];
+}
+
+/** True when a sustained median frame time has blown the budget. */
+function shouldDowngrade(samples) {
+  var c = cfgGet('viewport.adaptiveQuality', {});
+  if (c.enabled === false) return false;
+  if (samples.length < (c.minFrames || 90)) return false;
+  return medianOf(samples) > (c.slowFrameMs || 22);
+}
+
+/** Drop one quality step (never below the last configured cap). */
+function applyQualityStep() {
+  var steps = cfgGet('viewport.adaptiveQuality.steps', [2, 1.5]);
+  if (QUALITY.step >= steps.length) return false;
+  QUALITY.cap = steps[QUALITY.step];
+  QUALITY.step += 1;
+  QUALITY.samples = [];
+  QUALITY.frames = 0;
+  relayout();
+  resetDeco();
+  return true;
+}
+
+function sampleFrame(ms) {
+  var c = cfgGet('viewport.adaptiveQuality', {});
+  var max = c.sampleFrames || 60;
+  QUALITY.samples.push(ms);
+  if (QUALITY.samples.length > max) QUALITY.samples.shift();
+  QUALITY.frames += 1;
+  if (QUALITY.frames % (c.checkEvery || 30) === 0 && shouldDowngrade(QUALITY.samples)) {
+    applyQualityStep();
+  }
+}
+
+/* Design units -> CSS px (the only conversion the drawing code needs). */
+function sx(x) { return LAY.stageX + x * LAY.scale; }
+function sy(y) { return LAY.stageY + y * LAY.scale; }
+/* CSS px -> design units (input). */
+function ux(px) { return (px - LAY.stageX) / LAY.scale; }
+function uy(py) { return (py - LAY.stageY) / LAY.scale; }
+
+var CTX = null;
+var VIEW = { vw: 402, vh: 619, dpr: 1 };
+
+
+/* ===== 02-i18n.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §2  I18N — every visible string, zh + en, English is the fallback locale
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var DICT = {
+  'game.title': { zh: '磁极对决', en: 'Polar Clash' },
+  'game.subtitle': { zh: '磁吸对战棋', en: 'Magnet Duel' },
+
+  'color.0': { zh: '红', en: 'Red' },
+  'color.1': { zh: '青', en: 'Cyan' },
+  'color.2': { zh: '绿', en: 'Green' },
+  'color.3': { zh: '黄', en: 'Amber' },
+
+  'home.mode.ai': { zh: '人机对战', en: 'vs AI' },
+  'home.mode.ai.sub': { zh: '1-3 个 AI 对手', en: '1-3 AI rivals' },
+  'home.mode.solo': { zh: '单人挑战', en: 'Solo Run' },
+  'home.mode.solo.sub': { zh: '安全落子得分', en: 'Score every safe drop' },
+  'home.players': { zh: '人数', en: 'Players' },
+  'home.players.n': { zh: '{n} 人', en: '{n} P' },
+  'home.difficulty': { zh: 'AI 难度', en: 'AI Level' },
+  'home.diff.easy': { zh: '简单', en: 'Easy' },
+  'home.diff.normal': { zh: '普通', en: 'Normal' },
+  'home.diff.hard': { zh: '困难', en: 'Hard' },
+  'home.theme': { zh: '主题', en: 'Theme' },
+  'home.play': { zh: '开 始', en: 'PLAY' },
+  'home.rules': { zh: '玩法', en: 'Rules' },
+  'home.about': { zh: '关于', en: 'About' },
+  'home.stats.duel': { zh: '对战 {w} 胜 / {g} 局', en: 'Duel {w}W / {g}G' },
+  'home.stats.best': { zh: '最佳连胜 {s}', en: 'Best streak {s}' },
+  'home.stats.solo': { zh: '单人最佳 {s} 分', en: 'Solo best {s}' },
+  'home.lang': { zh: 'EN', en: '中' },
+
+  'board.turn': { zh: '轮到 {name}', en: '{name} to play' },
+  'board.your-turn': { zh: '你的回合', en: 'Your turn' },
+  'board.ai-turn': { zh: '{name} 思考中…', en: '{name} is thinking…' },
+  'board.foul': { zh: '触磁！{n} 颗回手', en: 'Snap! {n} back to hand' },
+  'board.safe': { zh: '安全落子', en: 'Safe drop' },
+  'board.safe-cells': { zh: '安全格 {n}', en: 'Safe {n}' },
+  'board.hand': { zh: '手牌 {n}', en: 'Hand {n}' },
+  'board.score': { zh: '得分 {n}', en: 'Score {n}' },
+  'board.hint.drag': { zh: '拖动磁珠到棋盘落子', en: 'Drag a bead onto the board' },
+  'board.hint.solo': { zh: '安全落子 +1 分，触磁即止', en: 'Safe drop +1 · a snap ends the run' },
+  'board.wait-turn': { zh: '等待 {name}…', en: 'Waiting for {name}…' },
+  'board.hint.place': { zh: '拖动落子 · 亮圈内会触磁', en: 'Drag to drop · the ring snaps' },
+  'board.you': { zh: '{name}（你）', en: '{name} (you)' },
+  'board.ai': { zh: '{name} AI', en: '{name} AI' },
+  'board.menu': { zh: '菜单', en: 'Menu' },
+  'board.restart': { zh: '重开', en: 'Restart' },
+  'board.paused': { zh: '已暂停', en: 'Paused' },
+  'board.resume': { zh: '继续', en: 'Resume' },
+  'board.quit': { zh: '退出本局', en: 'Quit game' },
+  'board.quit.hint': { zh: '当前进度不会保存', en: 'Progress will not be saved' },
+
+  'result.win': { zh: '胜利', en: 'YOU WIN' },
+  'result.lose': { zh: '落败', en: 'YOU LOSE' },
+  'result.solo-end': { zh: '挑战结束', en: 'RUN OVER' },
+  'result.solo-perfect': { zh: '完美收官', en: 'PERFECT' },
+  'result.reason.empty': { zh: '手牌全部放完', en: 'Hand emptied' },
+  'result.reason.stall': { zh: '磁力僵局 · 剩牌少者获胜', en: 'Stalemate · fewest left wins' },
+  'result.reason.full': { zh: '棋盘放满 · 剩牌少者获胜', en: 'Board full · fewest left wins' },
+  'result.reason.foul': { zh: '触磁落败', en: 'Snapped out' },
+  'result.reason.nomove': { zh: '再无安全落点', en: 'No safe drop left' },
+  'result.rank': { zh: '本局排名', en: 'Standings' },
+  'result.rank-n': { zh: '第 {n} 名', en: '#{n}' },
+  'result.left': { zh: '剩 {n}', en: '{n} left' },
+  'result.stat.placed': { zh: '安全落子', en: 'Safe drops' },
+  'result.stat.fouls': { zh: '触磁次数', en: 'Snaps' },
+  'result.stat.lost': { zh: '被吸走', en: 'Pulled back' },
+  'result.stat.onboard': { zh: '盘上磁珠', en: 'On board' },
+  'result.stat.safeleft': { zh: '剩余安全格', en: 'Safe left' },
+  'result.stat.score': { zh: '得分', en: 'Score' },
+  'result.best': { zh: '历史最佳 {n}', en: 'Best ever {n}' },
+  'result.newbest': { zh: '新纪录！', en: 'NEW RECORD!' },
+  'result.again': { zh: '再来一局', en: 'PLAY AGAIN' },
+  'result.home': { zh: '返回首页', en: 'Home' },
+  'result.round': { zh: '第 {n} 局', en: 'Game {n}' },
+
+  'rules.title': { zh: '玩法说明', en: 'How to Play' },
+  'rules.goal.h': { zh: '目标', en: 'Goal' },
+  'rules.goal.duel': { zh: '对战：轮流落子，最先把手牌放完的一方获胜。', en: 'Duel — take turns dropping beads; the first side to empty its hand wins.' },
+  'rules.goal.solo': { zh: '单人：在磁珠间腾挪，每颗安全落子得 1 分，触磁即止。', en: 'Solo — thread beads between magnets; every safe drop scores 1 point and a snap ends the run.' },
+  'rules.snap.h': { zh: '触磁', en: 'The snap' },
+  'rules.snap.b': { zh: '新磁珠若落在已有磁珠的磁场内（亮圈），整组相连磁珠会被吸住，连同这颗一起收回落子者手中——磁力不分颜色，吸到谁的都是你的牌。', en: 'Drop a bead inside another bead\u2019s field (the glowing ring) and the whole connected group is pulled in, then returns to the dropper\u2019s hand along with the new bead. Magnetism ignores colour, so you reclaim your own beads as well.' },
+  'rules.safe.h': { zh: '安全格', en: 'Safe cells' },
+  'rules.safe.b': { zh: '与所有磁珠保持距离的空格即为安全格，顶栏显示剩余数量。安全格归零时只能触磁。', en: 'An empty cell clear of every bead is safe; the counter shows how many remain. When none remain, every drop snaps.' },
+  'rules.end.h': { zh: '结束', en: 'Ending' },
+  'rules.end.b': { zh: '手牌放完、棋盘放满或双方反复触磁形成僵局时结算，剩牌少者名次靠前。', en: 'The game ends when a hand empties, the board fills, or repeated snapping deadlocks the board - fewest beads left ranks first.' },
+  'rules.tip': { zh: '提示：把磁珠放在对手的安全格上，能更快把他逼到无处可放。', en: 'Tip: dropping on the cells your rival needs shrinks their safe space fastest.' },
+  'rules.back': { zh: '返 回', en: 'BACK' },
+
+  'about.title': { zh: '关于', en: 'About' },
+  'about.version': { zh: '版本 {v}', en: 'Version {v}' },
+  'about.original.h': { zh: '原创声明', en: 'Original work' },
+  'about.original.b': { zh: '本游戏的玩法规则、代码、界面与音效均为独立创作：物理判定基于公开的磁力衰减与连通分量原理自行实现，全部画面由 Canvas 实时绘制，音效由 Web Audio 实时合成，未使用任何第三方美术、音频或代码素材。', en: 'Game rules, code, interface and audio are independently created. The physics uses the publicly known principles of magnetic falloff and connected components, implemented from scratch; all visuals are drawn live on Canvas and all sound is synthesised with Web Audio. No third-party art, audio or code is used.' },
+  'about.offline.h': { zh: '离线可玩', en: 'Plays offline' },
+  'about.offline.b': { zh: '本包为单机版本，不含任何联网功能，全部进度保存在本机。', en: 'This is a single-player build with no networking of any kind; all progress stays on this device.' },
+  'about.save.h': { zh: '本地数据', en: 'Local data' },
+  'about.save.b': { zh: '仅保存语言、主题与胜负统计，占用极小，可在下方清空。', en: 'Only language, theme and win/loss totals are stored. Wipe them below.' },
+  'about.wipe': { zh: '清空本地数据', en: 'Erase local data' },
+  'about.wiped': { zh: '已清空', en: 'Erased' },
+  'about.back': { zh: '返 回', en: 'BACK' },
+
+  'agree.title': { zh: '用户协议', en: 'User Agreement' },
+  'agree.body1': { zh: '欢迎游玩《磁极对决》。本游戏为单机休闲作品，不设账号、不含内购，也不收集任何个人信息。', en: 'Welcome to Polar Clash. This is an offline casual game: no accounts, no in-app purchases, and no personal information is collected.' },
+  'agree.body2': { zh: '游戏进度、语言与主题偏好仅保存在你的设备本地，卸载后即被清除。', en: 'Progress, language and theme preferences are stored only on your device and are removed when the app is uninstalled.' },
+  'agree.body3': { zh: '游戏中的全部美术、音效、文案与代码均为原创，受著作权保护，请勿擅自提取或再分发。', en: 'All art, audio, text and code in this game are original works protected by copyright. Please do not extract or redistribute them.' },
+  'agree.body4': { zh: '请合理安排游戏时间，注意休息。', en: 'Please play in moderation and take regular breaks.' },
+  'agree.ok': { zh: '同 意', en: 'AGREE' },
+
+  'a11y.lang': { zh: '切换语言', en: 'Switch language' },
+  'a11y.theme': { zh: '切换主题', en: 'Switch theme' },
+
+  'unit.p': { zh: '{n}人', en: '{n}P' },
+  'level.easy': { zh: '简单', en: 'Easy' },
+  'level.normal': { zh: '普通', en: 'Normal' },
+  'level.hard': { zh: '困难', en: 'Hard' }
+};
+
+var LANGS = cfgGet('locale.supported', ['zh', 'en']);
+var FALLBACK_LANG = cfgGet('locale.fallback', 'en');
+/* English is the default interface, not merely the fallback: the package opens in
+   English for everyone and only changes when a player picks a language. Set
+   locale.followSystem = true in game_config.json to start zh devices in Chinese. */
+var FOLLOW_SYSTEM = cfgGet('locale.followSystem', false) === true;
+var _lang = null;
+
+function detectLang() {
+  if (!FOLLOW_SYSTEM) return FALLBACK_LANG;
+  var tag = '';
+  try { tag = String((window.navigator && (window.navigator.language || window.navigator.userLanguage)) || ''); } catch (e) { tag = ''; }
+  if (/^zh\b/i.test(tag)) return LANGS.indexOf('zh') >= 0 ? 'zh' : FALLBACK_LANG;
+  /* Any locale we do not localise falls back to English, as the platform requires. */
+  return FALLBACK_LANG;
+}
+
+function getLang() {
+  if (_lang && LANGS.indexOf(_lang) >= 0) return _lang;
+  var saved = STORE.get('lang', '');
+  if (typeof saved === 'string' && LANGS.indexOf(saved) >= 0) return saved;
+  return detectLang();
+}
+
+function setLang(lang) {
+  if (LANGS.indexOf(lang) < 0) return false;
+  _lang = lang;
+  STORE.set('lang', lang);
+  try {
+    var title = tr('game.title');
+    if (document && document.title !== undefined) document.title = title;
+  } catch (e) { /* no document: ignore */ }
+  return true;
+}
+
+/* Lookup never throws: a missing key echoes itself so a gap can't blank the UI. */
+function tr(key, vars) {
+  var entry = DICT[key];
+  var lang = getLang();
+  var text;
+  if (!entry) text = key;
+  else text = entry[lang] || entry[FALLBACK_LANG] || entry.zh || key;
+  return vars ? fmt(text, vars) : text;
+}
+
+function colorName(i) { return tr('color.' + (i % 4)); }
+
+
+/* ===== 03-assets.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §3  ASSETS — window.lib.getAsset(assetId) pipeline with local fallbacks
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Mirrors asset_map.json (ids are the contract; the map file is the auditable copy).
+   Binary payload shipped: the store icon, the store cover and one grain texture.
+   Everything else the game shows is generated procedurally, so it has no url. */
+var ASSET_IDS = {
+  icon: { url: 'icon.png', type: 'image' },
+  poster: { url: 'cover/poster.jpg', type: 'image' },
+  grain: { url: 'assets/grain.png', type: 'image' },
+  board_skin: { url: null, type: 'image' },
+  bead_set: { url: null, type: 'image' },
+  fx_snap: { url: null, type: 'animation' },
+  sfx_drop: { url: null, type: 'audio' },
+  sfx_snap: { url: null, type: 'audio' },
+  sfx_win: { url: null, type: 'audio' }
+};
+
+var ASSETS = {
+  images: {},          /* id -> HTMLImageElement (only when actually usable) */
+  resolved: {},        /* id -> 'host' | 'local' | 'procedural' | 'missing' */
+  requested: [],       /* every id the game asked for */
+  calls: [],           /* ids handed to window.lib.getAsset (empty without the host API) */
+  host: !!(window.lib && typeof window.lib.getAsset === 'function'),
+  ready: null
+};
+
+/* The host API is deliberately unspecified beyond its name, so accept whatever
+   shape it returns: a promise, a URL string, a descriptor or a live element. */
+function hostGetAsset(id) {
+  ASSETS.calls.push(id);
+  try {
+    if (!window.lib || typeof window.lib.getAsset !== 'function') return null;
+    return window.lib.getAsset(id);
+  } catch (e) {
+    return null;
+  }
+}
+
+function loadImageUrl(url) {
+  return new Promise(function (resolve) {
+    if (!url) { resolve(null); return; }
+    var img = new Image();
+    /* Only remote (cross-origin) sources need the anonymous flag; setting it on a
+       relative url can break a plain file:// load, so it is conditional. */
+    if (/^https?:/i.test(url)) img.crossOrigin = 'anonymous';
+    img.onload = function () { resolve(img); };
+    img.onerror = function () { resolve(null); };
+    img.src = url;
+  });
+}
+
+function imageFromValue(value) {
+  return new Promise(function (resolve) {
+    if (!value) { resolve(null); return; }
+    if (typeof value === 'string') { loadImageUrl(value).then(resolve); return; }
+    if (typeof value.then === 'function') {
+      value.then(function (v) { imageFromValue(v).then(resolve); }, function () { resolve(null); });
+      return;
+    }
+    if (typeof Image !== 'undefined' && value instanceof Image) { resolve(value); return; }
+    if (value.image && typeof value.image === 'object') { imageFromValue(value.image).then(resolve); return; }
+    if (typeof value.src === 'string') { loadImageUrl(value.src).then(resolve); return; }
+    if (typeof value.url === 'string') { loadImageUrl(value.url).then(resolve); return; }
+    if (typeof value.path === 'string') { loadImageUrl(value.path).then(resolve); return; }
+    resolve(null);
+  });
+}
+
+function requestAsset(id) {
+  var spec = ASSET_IDS[id] || {};
+  ASSETS.requested.push(id);
+  var viaHost = null;
+  if (ASSETS.host) {
+    var raw = hostGetAsset(id);
+    if (raw !== null && raw !== undefined) {
+      viaHost = imageFromValue(raw).then(function (img) { return img ? { img: img, from: 'host' } : null; });
+    }
+  }
+  var chain = viaHost || Promise.resolve(null);
+  return chain.then(function (hit) {
+    if (hit) return hit;
+    return loadImageUrl(spec.url).then(function (img) { return img ? { img: img, from: 'local' } : null; });
+  }).then(function (hit) {
+    if (hit) {
+      ASSETS.images[id] = hit.img;
+      ASSETS.resolved[id] = hit.from;
+    } else {
+      ASSETS.resolved[id] = spec.url ? 'missing' : 'procedural';
+    }
+    return ASSETS.images[id] || null;
+  });
+}
+
+/* Every declared asset is requested through the platform API at boot, so the
+   documented call happens for the whole manifest — not just the files we ship. */
+function loadAssets() {
+  var ids = [];
+  for (var k in ASSET_IDS) { if (Object.prototype.hasOwnProperty.call(ASSET_IDS, k)) ids.push(k); }
+  ASSETS.ready = Promise.all(ids.map(requestAsset));
+  return ASSETS.ready;
+}
+
+function assetImage(id) { return ASSETS.images[id] || null; }
+
+
+/* ===== 04-theme.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §4  THEME — the three palettes are data, not code
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var THEMES = cfgGet('themes', []);
+var DEFAULT_THEME = cfgGet('defaultTheme', 'candy');
+var _themeId = null;
+
+function themeIds() {
+  var out = [];
+  for (var i = 0; i < THEMES.length; i += 1) out.push(THEMES[i].id);
+  return out;
+}
+
+function getThemeId() {
+  if (_themeId) return _themeId;
+  var saved = STORE.get('theme', '');
+  if (typeof saved === 'string' && themeIds().indexOf(saved) >= 0) return saved;
+  return DEFAULT_THEME;
+}
+
+function setThemeId(id) {
+  if (themeIds().indexOf(id) < 0) return false;
+  _themeId = id;
+  STORE.set('theme', id);
+  return true;
+}
+
+function T() {
+  var id = getThemeId();
+  for (var i = 0; i < THEMES.length; i += 1) { if (THEMES[i].id === id) return THEMES[i]; }
+  return THEMES[0];
+}
+
+/* Player bead colours come from the active theme so switching palettes also
+   recolours the beads; the ownership notch shape stays constant per seat. */
+function seatColor(i) {
+  var t = T();
+  return t.bead[i % t.bead.length];
+}
+function seatDark(i) {
+  var t = T();
+  return t.beadDark[i % t.beadDark.length];
+}
+function seatLight(i) {
+  var t = T();
+  return t.beadLight[i % t.beadLight.length];
+}
+function seatName(i) {
+  var suffix = ['P1', 'P2', 'P3', 'P4'][i % 4];
+  return suffix + ' · ' + colorName(i);
+}
+
+
+/* ===== 05-audio.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §5  AUDIO — every sound is synthesised with Web Audio, so no wav/ogg ships
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var SFX = (function () {
+  var ctx = null;
+  var master = null;
+  var enabled = cfgGet('audio.enabled', true);
+  var volume = cfgGet('audio.masterVolume', 0.45);
+
+  function ac() {
+    if (!enabled) return null;
+    try {
+      if (!ctx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC();
+        master = ctx.createGain();
+        master.gain.value = volume;
+        master.connect(ctx.destination);
+      }
+      /* WebViews may start the context suspended until the first interaction. */
+      if (ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (e) { /* retried on next gesture */ } }
+      return ctx;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function tone(opts) {
+    var c = ac();
+    if (!c) return;
+    try {
+      var t0 = c.currentTime + (opts.delay || 0);
+      var dur = opts.dur || 0.12;
+      var osc = c.createOscillator();
+      var gain = c.createGain();
+      osc.type = opts.type || 'triangle';
+      osc.frequency.setValueAtTime(opts.freq, t0);
+      if (opts.to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, opts.to), t0 + dur);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, opts.gain || 0.3), t0 + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      var node = osc;
+      if (opts.q) {
+        var bp = c.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = opts.band || opts.freq;
+        bp.Q.value = opts.q;
+        osc.connect(bp);
+        node = bp;
+      }
+      node.connect(gain);
+      gain.connect(master);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
+    } catch (e) { /* audio is never allowed to break gameplay */ }
+  }
+
+  function noise(opts) {
+    var c = ac();
+    if (!c) return;
+    try {
+      var t0 = c.currentTime + (opts.delay || 0);
+      var dur = opts.dur || 0.08;
+      var len = Math.max(1, Math.floor(c.sampleRate * dur));
+      var buf = c.createBuffer(1, len, c.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < len; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      var src = c.createBufferSource();
+      src.buffer = buf;
+      var f = c.createBiquadFilter();
+      f.type = opts.filter || 'highpass';
+      f.frequency.value = opts.freq || 900;
+      var g = c.createGain();
+      g.gain.value = opts.gain || 0.12;
+      src.connect(f); f.connect(g); g.connect(master);
+      src.start(t0);
+    } catch (e) { /* ignore */ }
+  }
+
+  return {
+    /* wood click: bead meeting the board */
+    drop: function () {
+      tone({ type: 'triangle', freq: 620, to: 300, dur: 0.09, gain: 0.26 });
+      noise({ dur: 0.05, freq: 1600, gain: 0.10 });
+    },
+    /* metal snap: one voice per bead pulled in */
+    snap: function (index) {
+      var d = (index || 0) * (cfgGet('anim.snapChainDelayMs', 80) / 1000);
+      tone({ type: 'square', freq: 340 + (index || 0) * 26, to: 150, dur: 0.10, gain: 0.16, q: 6, band: 900, delay: d });
+      noise({ dur: 0.05, freq: 2400, gain: 0.10, delay: d });
+    },
+    bump: function () { tone({ type: 'sine', freq: 180, to: 120, dur: 0.08, gain: 0.16 }); },
+    win: function (perfect) {
+      var notes = perfect ? [523, 659, 784, 1046] : [523, 659, 784];
+      for (var i = 0; i < notes.length; i += 1) {
+        tone({ type: 'triangle', freq: notes[i], dur: 0.24, gain: 0.22, delay: i * 0.10 });
+      }
+    },
+    lose: function () {
+      tone({ type: 'sine', freq: 392, to: 311, dur: 0.30, gain: 0.20 });
+      tone({ type: 'sine', freq: 294, to: 233, dur: 0.34, gain: 0.16, delay: 0.14 });
+    },
+    /* Called from the first pointer event so the context can start. */
+    unlock: function () { ac(); },
+    setEnabled: function (v) { enabled = !!v; },
+    isEnabled: function () { return enabled; }
+  };
+})();
+
+
+/* ===== 06-magnet.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §6  MAGNET — pure physics. No DOM, no state: same input always same output,
+       which is what lets the AI, the animation and the tests agree.
+
+   Only the classic reclaim rule ships here (plus the solo survival variant that
+   reuses it), matching the delivered ruleset.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function snapRadius() { return cfgGet('physics.snapRadius', 1.65); }
+
+function pdist(ax, ay, bx, by) {
+  var dx = ax - bx, dy = ay - by;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/* A cell is hot when any bead sits inside its field. */
+function isMineCell(board, x, y, radius) {
+  var r = radius === undefined ? snapRadius() : radius;
+  for (var i = 0; i < board.length; i += 1) {
+    if (pdist(board[i].x, board[i].y, x, y) < r) return true;
+  }
+  return false;
+}
+
+/* The whole connected group regardless of owner — magnetism ignores colour, which
+   is exactly why a careless drop hands back a fistful of your own beads too. */
+function clusterOfAll(pieces, seed, radius) {
+  var group = [];
+  var seen = {};
+  seen[seed.id] = true;
+  var stack = [seed];
+  while (stack.length) {
+    var cur = stack.pop();
+    for (var i = 0; i < pieces.length; i += 1) {
+      var p = pieces[i];
+      if (seen[p.id]) continue;
+      if (pdist(cur.x, cur.y, p.x, p.y) < radius) {
+        seen[p.id] = true;
+        group.push(p);
+        stack.push(p);
+      }
+    }
+  }
+  return group;
+}
+
+/* Board bounds live in one place; every entry point re-applies them for its own
+   board size so a stale bounds function can never reject a legal cell. */
+var _bounds = makeBoardBounds(11, 13);
+
+function makeBoardBounds(cols, rows) {
+  return function (x, y) {
+    return isFinite(x) && isFinite(y) && Math.floor(x) === x && Math.floor(y) === y &&
+      x >= 0 && y >= 0 && x < cols && y < rows;
+  };
+}
+function setBoardBounds(fn) { _bounds = fn; }
+function setBoardBoundsFor(cols, rows) { _bounds = makeBoardBounds(cols, rows); }
+function isValidCell(x, y) { return _bounds(x, y); }
+
+var _idSeq = 0;
+function newPieceId() { _idSeq += 1; return _idSeq; }
+function resetIdSeq() { _idSeq = 0; }
+
+function emptyBoardCopy(board) {
+  var out = [];
+  for (var i = 0; i < board.length; i += 1) {
+    out.push({ x: board[i].x, y: board[i].y, owner: board[i].owner, id: board[i].id });
+  }
+  return out;
+}
+
+function occupied(board, x, y) {
+  for (var i = 0; i < board.length; i += 1) {
+    if (board[i].x === x && board[i].y === y) return true;
+  }
+  return false;
+}
+
+/**
+ * Resolve one drop.
+ * @returns {{landed:boolean, mine:boolean, board:Array, hitIds:Array}}
+ *   mine=false → the bead settles and is appended to `board`.
+ *   mine=true  → the bead never settles: it returns to the dropper's hand together
+ *                with the connected group (`hitIds`), and `board` is the board with
+ *                that whole group already removed.
+ */
+function simulateMagnet(board, piece, radius) {
+  var r = radius === undefined ? snapRadius() : radius;
+  var miss = { landed: false, mine: false, board: board, hitIds: [] };
+
+  if (!isValidCell(piece.x, piece.y)) return miss;
+  if (occupied(board, piece.x, piece.y)) return miss;
+
+  var cluster = clusterOfAll(board, piece, r);
+  if (cluster.length === 0) {
+    var grown = emptyBoardCopy(board);
+    grown.push({ x: piece.x, y: piece.y, owner: piece.owner, id: piece.id });
+    return { landed: true, mine: false, board: grown, hitIds: [] };
+  }
+
+  var hitIds = [];
+  var removed = {};
+  for (var i = 0; i < cluster.length; i += 1) {
+    hitIds.push(cluster[i].id);
+    removed[cluster[i].id] = true;
+  }
+  var kept = [];
+  for (var k = 0; k < board.length; k += 1) {
+    if (!removed[board[k].id]) {
+      kept.push({ x: board[k].x, y: board[k].y, owner: board[k].owner, id: board[k].id });
+    }
+  }
+  return { landed: true, mine: true, hitIds: hitIds, board: kept };
+}
+
+
+/* ===== 07-rules.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §7  RULES — turn machine, reclaim settlement, end conditions, ranking.
+        Pure logic: no rendering, no storage, no platform calls.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Create a fresh game. Called for the first game and for every restart, so it
+ * must fully initialise every derived value from the seed — nothing carried over.
+ * @param {number} playerCount 2-4 for classic; ignored for solo
+ * @param {'classic'|'solo'} mode
+ * @param {number} seed
+ * @param {Array<'human'|'ai'>} playerTypes
+ */
+function createGame(playerCount, mode, seed, playerTypes) {
+  var solo = mode === 'solo';
+  var maxPlayers = cfgGet('rules.maxPlayers', 4);
+  /* Normalise defensively: a bad caller must not be able to produce a board size
+     or hand count that does not exist. */
+  var wanted = Number(playerCount);
+  var n = solo ? 1 : clamp(isFinite(wanted) ? wanted : 2, 2, maxPlayers);
+  var idx = clamp(solo ? 0 : n - 2, 0, 2);
+  var boardCfg = cfgGet('board.' + (solo ? 'solo' : 'classic'), null) || cfgGet('board.classic');
+  var cols = boardCfg.cols[idx];
+  var rows = boardCfg.rows[idx];
+  var piecesEach = solo ? 0 : boardCfg.pieces[idx];
+
+  resetIdSeq();
+  setBoardBoundsFor(cols, rows);
+
+  var obstacles = solo ? makeObstacles(cols, rows, boardCfg.obstacles[idx], mulberry32(seed), boardCfg) : [];
+
+  var types = [];
+  for (var i = 0; i < n; i += 1) {
+    types.push(playerTypes && playerTypes.length === n ? playerTypes[i] : 'human');
+  }
+
+  var game = {
+    mode: solo ? 'solo' : 'classic',
+    playerCount: n,
+    cols: cols,
+    rows: rows,
+    piecesEach: piecesEach,
+    seed: seed,
+    playerTypes: types,
+    turn: 0,
+    board: obstacles,
+    obstacleCount: obstacles.length,   /* neutral beads, not owned by any seat */
+    hands: [],
+    totalPlaced: 0,
+    over: false,
+    endReason: null,
+    winner: -1,
+    ranking: [],
+    stats: [],
+    lastMove: null,
+    boardMax: obstacles.length,
+    stall: 0,
+    moves: 0,
+    score: 0,          /* solo: safe drops */
+    sigs: []
+  };
+  for (var h = 0; h < n; h += 1) {
+    game.hands.push(piecesEach);
+    game.stats.push({ placed: 0, snaps: 0, pulledBack: 0 });
+  }
+  game.sigs.push(stateSig(game));
+  return game;
+}
+
+function isAISeat(game, i) { return game.playerTypes[i] === 'ai'; }
+
+/**
+ * Drop the current player's bead at (x, y).
+ * classic: landing inside a field is a legal move — the connected group plus the
+ * new bead return to the dropper's hand and play passes on. Emptying your hand first wins.
+ * solo:    landing inside a field ends the run immediately.
+ */
+function placePiece(game, x, y) {
+  if (game.over) return { ok: false, error: 'over' };
+  setBoardBoundsFor(game.cols, game.rows);
+
+  var owner = game.turn;
+  if (game.mode === 'classic' && game.hands[owner] <= 0) return { ok: false, error: 'empty-hand' };
+
+  var piece = { x: x, y: y, owner: owner, id: newPieceId() };
+  var res = simulateMagnet(game.board, piece);
+  if (!res.landed) return { ok: false, error: 'illegal' };
+
+  /* ── solo: the first snap ends the run ── */
+  if (game.mode === 'solo') {
+    if (res.mine) {
+      var s2 = cloneGame(game);
+      s2.over = true;
+      s2.endReason = 'foul';
+      s2.winner = 0;
+      s2.ranking = [0];
+      s2.stats[0].snaps += 1;
+      s2.lastMove = { type: 'foul', x: x, y: y, owner: 0, hitIds: res.hitIds, count: res.hitIds.length };
+      s2.moves += 1;
+      return { ok: true, foul: true, game: s2, result: res };
+    }
+    var s1 = cloneGame(game);
+    s1.board = res.board;
+    s1.score += cfgGet('scoring.soloPointPerSafeDrop', 1);
+    s1.stats[0].placed += 1;
+    s1.moves += 1;
+    s1.lastMove = { type: 'land', x: x, y: y, owner: 0, hitIds: [], count: 0 };
+    return { ok: true, foul: false, game: settle(s1, game), result: res };
+  }
+
+  /* ── classic: a snap reclaims the whole connected group ── */
+  if (res.mine) {
+    var n = res.hitIds.length;                 /* beads pulled off the board */
+    var g = cloneGame(game);
+    g.board = res.board;
+    /* hand: -1 (bead left it) +1 (bead comes back) + n (the group) = +n */
+    g.hands[owner] += n;
+    var before = boardByOwner(game.board);
+    var after = boardByOwner(res.board);
+    g.stats[owner].snaps += 1;
+    for (var p = 0; p < g.playerCount; p += 1) {
+      if (p !== owner) g.stats[p].pulledBack += Math.max(0, before[p] - after[p]);
+    }
+    g.lastMove = { type: 'foul', x: x, y: y, owner: owner, hitIds: res.hitIds, count: n };
+    g.moves += 1;
+    /* A snap always shrinks the board, so it can never refresh the high-water mark.
+       The proxy stall counter only runs for odd player counts; even counts are
+       provably safe without it (see resolveCycle, which covers every count). */
+    g.stall = shouldCountStall(g) ? game.stall + 1 : 0;
+    g.turn = nextTurn(g, owner);
+    return { ok: true, foul: true, game: settle(g, game, owner), result: res };
+  }
+
+  var g2 = cloneGame(game);
+  g2.board = res.board;
+  g2.hands[owner] -= 1;
+  g2.totalPlaced += 1;
+  g2.stats[owner].placed += 1;
+  g2.lastMove = { type: 'land', x: x, y: y, owner: owner, hitIds: [], count: 0 };
+  g2.moves += 1;
+  if (g2.board.length > (game.boardMax === undefined ? game.board.length : game.boardMax)) {
+    g2.boardMax = g2.board.length;
+    g2.stall = 0;
+  } else if (shouldCountStall(g2)) {
+    g2.stall = game.stall + 1;
+  } else {
+    g2.stall = 0;
+  }
+  g2.turn = nextTurn(g2, owner);
+  return { ok: true, foul: false, game: settle(g2, game, owner), result: res };
+}
+
+function cloneGame(g) {
+  var out = {};
+  for (var k in g) { if (Object.prototype.hasOwnProperty.call(g, k)) out[k] = g[k]; }
+  out.hands = g.hands.slice();
+  out.stats = [];
+  for (var i = 0; i < g.stats.length; i += 1) {
+    out.stats.push({ placed: g.stats[i].placed, snaps: g.stats[i].snaps, pulledBack: g.stats[i].pulledBack });
+  }
+  out.ranking = g.ranking.slice();
+  out.board = g.board;
+  return out;
+}
+
+function boardByOwner(board) {
+  var counts = [0, 0, 0, 0];
+  for (var i = 0; i < board.length; i += 1) {
+    if (board[i].owner >= 0) counts[board[i].owner] += 1;
+  }
+  return counts;
+}
+
+/* Next seat that still holds beads; -1 when every hand is empty. */
+function nextTurn(g, from) {
+  var t = (from + 1) % g.playerCount;
+  for (var i = 0; i < g.playerCount; i += 1) {
+    if (g.hands[t] > 0) return t;
+    t = (t + 1) % g.playerCount;
+  }
+  return -1;
+}
+
+/* The proxy stall counter is only needed for odd counts: three-way play can
+   oscillate hands around a fixed board state and never converge on its own. */
+function shouldCountStall(g) {
+  return g.mode === 'classic' && g.playerCount % 2 !== 0;
+}
+
+/**
+ * Position fingerprint. In classic, (board ownership+coords, hands, side to move)
+ * fully determines everything that follows — bead ids do not affect play. Two
+ * accumulators keep collisions negligible; a collision could only end a game
+ * early, and only inside the short detection window.
+ */
+function stateSig(g) {
+  var parts = [];
+  for (var i = 0; i < g.board.length; i += 1) {
+    parts.push(g.board[i].owner + '@' + g.board[i].x + ',' + g.board[i].y);
+  }
+  parts.sort();
+  var s = parts.join(';') + '|' + g.hands.join(',') + '|' + g.turn;
+  var h1 = 0x811c9dc5;
+  var h2 = 0x01000193;
+  for (var j = 0; j < s.length; j += 1) {
+    var c = s.charCodeAt(j);
+    h1 = Math.imul(h1 ^ c, 16777619) >>> 0;
+    h2 = Math.imul(h2 + c + j, 2246822519) >>> 0;
+  }
+  return h1.toString(36) + '.' + h2.toString(36);
+}
+
+/**
+ * Finish a move: detect a genuine deadlock, then decide the outcome.
+ *
+ * Exact cycle detection: late in a game with no safe cell left, a side that always
+ * picks the cheapest snap can hand the opponent a position that recreates itself —
+ * both sides make zero progress forever and the trapped side's hand grows without
+ * bound. If the current position repeats one seen in the last CLASSIC_CYCLE_WINDOW
+ * moves, the game is declared a stalemate (fewest beads left wins). This is exact,
+ * so it never truncates a healthy game, and it works at 2, 3 and 4 players.
+ */
+function settle(g, prev, owner) {
+  var sig = stateSig(g);
+  var repeated = false;
+  var window_ = cfgGet('rules.classicCycleWindow', 16);
+  var prevSigs = prev.sigs || [];
+  /* Solo boards only ever grow, so the check is classic-only and costs nothing there. */
+  if (g.mode === 'classic') {
+    for (var i = 0; i < prevSigs.length; i += 1) {
+      if (prevSigs[i] === sig) { repeated = true; break; }
+    }
+  }
+  var sigs = prevSigs.slice(Math.max(0, prevSigs.length - window_ + 1));
+  sigs.push(sig);
+  g.sigs = sigs;
+
+  var verdict = repeated ? { over: true, reason: 'stall', winner: fewestHands(g) } : judge(g, owner);
+  if (verdict.over) {
+    g.over = true;
+    g.endReason = verdict.reason;
+    g.winner = verdict.winner;
+    g.ranking = computeRanking(g);
+  }
+  return g;
+}
+
+function judge(g, owner) {
+  if (g.mode === 'solo') {
+    if (isBoardFull(g)) return { over: true, reason: 'full', winner: 0 };
+    if (!hasSafeCell(g)) return { over: true, reason: 'nomove', winner: 0 };
+    return { over: false };
+  }
+  if (g.hands[owner] <= 0) return { over: true, reason: 'empty', winner: owner };
+  if (g.stall >= cfgGet('rules.classicStall', 8) * g.playerCount) {
+    return { over: true, reason: 'stall', winner: fewestHands(g) };
+  }
+  if (isBoardFull(g)) return { over: true, reason: 'full', winner: fewestHands(g) };
+  return { over: false };
+}
+
+function fewestHands(g) {
+  var best = 0;
+  for (var i = 1; i < g.playerCount; i += 1) {
+    if (g.hands[i] < g.hands[best]) best = i;
+  }
+  return best;
+}
+
+function isBoardFull(g) { return g.board.length >= g.cols * g.rows; }
+
+function countSafeCells(g) {
+  var occ = {};
+  for (var i = 0; i < g.board.length; i += 1) occ[g.board[i].x + ',' + g.board[i].y] = true;
+  var r = snapRadius();
+  var c = 0;
+  for (var x = 0; x < g.cols; x += 1) {
+    for (var y = 0; y < g.rows; y += 1) {
+      if (occ[x + ',' + y]) continue;
+      if (!isMineCell(g.board, x, y, r)) c += 1;
+    }
+  }
+  return c;
+}
+
+function hasSafeCell(g) {
+  var occ = {};
+  for (var i = 0; i < g.board.length; i += 1) occ[g.board[i].x + ',' + g.board[i].y] = true;
+  var r = snapRadius();
+  for (var x = 0; x < g.cols; x += 1) {
+    for (var y = 0; y < g.rows; y += 1) {
+      if (occ[x + ',' + y]) continue;
+      if (!isMineCell(g.board, x, y, r)) return true;
+    }
+  }
+  return false;
+}
+
+/* Standings, best first. classic ranks by beads left (an empty hand is 0 → first). */
+function computeRanking(g) {
+  var rows = [];
+  for (var i = 0; i < g.playerCount; i += 1) rows.push({ i: i, key: g.hands[i] });
+  rows.sort(function (a, b) { return a.key - b.key || a.i - b.i; });
+  var out = [];
+  for (var j = 0; j < rows.length; j += 1) out.push(rows[j].i);
+  return out;
+}
+
+function playerRank(g, seat) {
+  var ranking = g.ranking && g.ranking.length ? g.ranking : computeRanking(g);
+  for (var i = 0; i < ranking.length; i += 1) {
+    if (ranking[i] === seat) {
+      /* ties share the better position */
+      var key = g.hands[seat];
+      var rank = 1;
+      for (var j = 0; j < i; j += 1) { if (g.hands[ranking[j]] < key) rank += 1; }
+      return rank;
+    }
+  }
+  return ranking.length;
+}
+
+/* ── solo layout: scatter neutral obstacles, reject unplayable layouts ─────── */
+function makeObstacles(cols, rows, count, rand, boardCfg) {
+  var reachMin = boardCfg.reachMin === undefined ? 11 : boardCfg.reachMin;
+  var reachMax = boardCfg.reachMax === undefined ? 16 : boardCfg.reachMax;
+  var target = boardCfg.reachTarget === undefined ? 13.5 : boardCfg.reachTarget;
+  var attempts = boardCfg.obstacleAttempts || 40;
+  var best = null;
+
+  for (var attempt = 0; attempt < attempts; attempt += 1) {
+    var obs = [];
+    var used = {};
+    var guard = 0;
+    while (obs.length < count && guard < 500) {
+      guard += 1;
+      var x = Math.floor(rand() * cols);
+      var y = Math.floor(rand() * rows);
+      var k = x + ',' + y;
+      if (used[k]) continue;
+      used[k] = true;
+      obs.push({ x: x, y: y, owner: -1, id: newPieceId() });
+    }
+    var reach = greedyReachableScore(cols, rows, obs);
+    if (reach >= reachMin && reach <= reachMax) return obs;
+    if (!best || Math.abs(reach - target) < Math.abs(best.reach - target)) best = { obs: obs, reach: reach };
+  }
+  return best ? best.obs : [];
+}
+
+/* Greedy solo potential: how many safe drops a first-fit scan can still make.
+   Used both to score a layout and to reject degenerate ones. */
+function greedyReachableScore(cols, rows, startBoard) {
+  var r = snapRadius();
+  var board = [];
+  var occ = {};
+  for (var i = 0; i < startBoard.length; i += 1) {
+    board.push({ x: startBoard[i].x, y: startBoard[i].y });
+    occ[startBoard[i].x + ',' + startBoard[i].y] = true;
+  }
+  function safe(x, y) {
+    for (var j = 0; j < board.length; j += 1) {
+      if (pdist(board[j].x, board[j].y, x, y) < r) return false;
+    }
+    return true;
+  }
+  var score = 0;
+  var guard = 0;
+  while (guard < 400) {
+    guard += 1;
+    var pick = null;
+    for (var x = 0; x < cols && !pick; x += 1) {
+      for (var y = 0; y < rows && !pick; y += 1) {
+        if (!occ[x + ',' + y] && safe(x, y)) pick = { x: x, y: y };
+      }
+    }
+    if (!pick) break;
+    board.push(pick);
+    occ[pick.x + ',' + pick.y] = true;
+    score += 1;
+  }
+  return score;
+}
+
+
+/* ===== 08-ai.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §8  AI — heuristic seat chooser. Pure: reads a game state, returns a cell.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function emptyCells(board, cols, rows) {
+  var occ = {};
+  for (var i = 0; i < board.length; i += 1) occ[board[i].x + ',' + board[i].y] = true;
+  var out = [];
+  for (var x = 0; x < cols; x += 1) {
+    for (var y = 0; y < rows; y += 1) {
+      if (!occ[x + ',' + y]) out.push({ x: x, y: y });
+    }
+  }
+  return out;
+}
+
+/* Safe cells left after committing to `cell` — the crowding metric. */
+function safeCountAfter(board, cols, rows, cell) {
+  var nb = board.slice();
+  nb.push({ x: cell.x, y: cell.y, owner: -9, id: -9 });
+  var r = snapRadius();
+  var occ = {};
+  for (var i = 0; i < nb.length; i += 1) occ[nb[i].x + ',' + nb[i].y] = true;
+  var c = 0;
+  for (var x = 0; x < cols; x += 1) {
+    for (var y = 0; y < rows; y += 1) {
+      if (occ[x + ',' + y]) continue;
+      if (!isMineCell(nb, x, y, r)) c += 1;
+    }
+  }
+  return c;
+}
+
+/**
+ * Largest set of mutually non-adjacent safe drops (greedy). Dropping on one safe
+ * cell closes every other safe cell inside its field, so this count is the strict
+ * lower bound on "how many safe turns I still have". Two or more means one
+ * opponent move cannot close them all.
+ */
+function safePacking(board, cols, rows) {
+  var r = snapRadius();
+  var cells = [];
+  var occ = {};
+  for (var i = 0; i < board.length; i += 1) occ[board[i].x + ',' + board[i].y] = true;
+  for (var x = 0; x < cols; x += 1) {
+    for (var y = 0; y < rows; y += 1) {
+      if (occ[x + ',' + y]) continue;
+      if (!isMineCell(board, x, y, r)) cells.push({ x: x, y: y });
+    }
+  }
+  var used = [];
+  var n = 0;
+  for (var a = 0; a < cells.length; a += 1) {
+    if (used[a]) continue;
+    n += 1;
+    for (var b = a; b < cells.length; b += 1) {
+      if (!used[b] && pdist(cells[a].x, cells[a].y, cells[b].x, cells[b].y) < r) used[b] = true;
+    }
+  }
+  return n;
+}
+
+function aiNoise(difficulty) {
+  var table = cfgGet('ai.noise', { easy: 60, normal: 40, hard: 12 });
+  return table[difficulty] === undefined ? table.normal : table[difficulty];
+}
+function aiRandomP(difficulty) {
+  var table = cfgGet('ai.randomP', { easy: 0.3, normal: 0, hard: 0 });
+  return table[difficulty] === undefined ? 0 : table[difficulty];
+}
+
+/**
+ * @param {object} game
+ * @param {'easy'|'normal'|'hard'} difficulty
+ * @returns {{x:number,y:number}|null}
+ */
+function chooseMove(game, difficulty) {
+  var cols = game.cols;
+  var rows = game.rows;
+  var board = game.board;
+  setBoardBounds(makeBoardBounds(cols, rows));
+
+  var empties = emptyCells(board, cols, rows);
+  if (empties.length === 0) return null;
+
+  var noise = aiNoise(difficulty);
+  var randomP = aiRandomP(difficulty);
+
+  /* easy plays like a beginner: sometimes any empty cell, including a bad one. */
+  if (randomP > 0 && Math.random() < randomP) {
+    return empties[Math.floor(Math.random() * empties.length)];
+  }
+
+  var r = snapRadius();
+  var safe = [];
+  for (var i = 0; i < empties.length; i += 1) {
+    if (!isMineCell(board, empties[i].x, empties[i].y, r)) safe.push(empties[i]);
+  }
+
+  /* Forced to snap (no safe cell): picking the smallest pull closes only one hole
+     and lets the opponent refill it, recreating the position — a zero-progress loop
+     that starves this seat. Maximise the resulting non-adjacent safe packing
+     instead, then minimise the beads paid, then break ties at random so the same
+     cell is not chosen every time. */
+  if (safe.length === 0) {
+    var scored = [];
+    for (var e = 0; e < empties.length; e += 1) {
+      var sim = simulateMagnet(board, { x: empties[e].x, y: empties[e].y, owner: game.turn, id: -2 });
+      scored.push({
+        c: empties[e],
+        k: sim.mine ? sim.hitIds.length : 0,
+        pack: safePacking(sim.board, cols, rows)
+      });
+    }
+    var bestPack = scored[0];
+    for (var s = 1; s < scored.length; s += 1) {
+      if (scored[s].pack > bestPack.pack || (scored[s].pack === bestPack.pack && scored[s].k < bestPack.k)) {
+        bestPack = scored[s];
+      }
+    }
+    var tied = [];
+    for (var t = 0; t < scored.length; t += 1) {
+      if (scored[t].pack === bestPack.pack && scored[t].k === bestPack.k) tied.push(scored[t]);
+    }
+    return tied[Math.floor(Math.random() * tied.length)].c;
+  }
+
+  /* Safe cells exist: crowd the opponent by leaving them the fewest safe cells. */
+  var options = [];
+  for (var o = 0; o < safe.length; o += 1) {
+    options.push({ c: safe[o], remain: safeCountAfter(board, cols, rows, safe[o]) });
+  }
+
+  var deep = difficulty === 'hard' && game.mode !== 'solo';
+  if (!deep) {
+    var best = null;
+    var bestScore = -Infinity;
+    for (var q = 0; q < options.length; q += 1) {
+      var sc = -options[q].remain * 10 + Math.random() * noise;
+      if (sc > bestScore) { bestScore = sc; best = options[q].c; }
+    }
+    return best;
+  }
+
+  /* hard adds one ply: prefer an immediate kill, avoid handing one over. */
+  options.sort(function (a, b) { return a.remain - b.remain; });
+  var cands = options.slice(0, cfgGet('ai.hardLookahead', 10));
+  var pick = null;
+  var pickScore = -Infinity;
+  for (var ci = 0; ci < cands.length; ci += 1) {
+    var remain = cands[ci].remain;
+    if (remain === 0) return cands[ci].c;   /* the opponent must snap next turn */
+    var after = board.slice();
+    after.push({ x: cands[ci].c.x, y: cands[ci].c.y, owner: game.turn, id: -2 });
+    var oppSafe = emptyCells(after, cols, rows).filter(function (cell) {
+      return !isMineCell(after, cell.x, cell.y, r);
+    });
+    var oppCanKill = false;
+    for (var oi = 0; oi < oppSafe.length; oi += 1) {
+      if (safeCountAfter(after, cols, rows, oppSafe[oi]) === 0) { oppCanKill = true; break; }
+    }
+    var v = -remain * 10 + (oppCanKill ? -300 : 0) + Math.random() * noise;
+    if (v > pickScore) { pickScore = v; pick = cands[ci].c; }
+  }
+  return pick;
+}
+
+/* Solo has no opponent, so the AI helper is only used to sanity-check layouts. */
+function soloPotential(g) {
+  return greedyReachableScore(g.cols, g.rows, g.board);
+}
+
+
+/* ===== 09-draw.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §9  DRAW — canvas primitives and the shared visual vocabulary.
+        Everything is drawn live; no bitmap art is required to render a frame.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var FONT_STACK = '"Arial Rounded MT Bold","Baloo 2","Nunito","Segoe UI",system-ui,-apple-system,' +
+  '"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
+
+var _grainPattern = null;
+
+function setFont(size, weight) {
+  CTX.font = (weight || '700') + ' ' + Math.round(size * 10) / 10 + 'px ' + FONT_STACK;
+}
+
+function rgba(hex, a) {
+  var h = String(hex).replace('#', '');
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  var n = parseInt(h, 16);
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+
+function roundRectPath(x, y, w, h, r) {
+  var rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  CTX.beginPath();
+  CTX.moveTo(x + rad, y);
+  CTX.lineTo(x + w - rad, y);
+  CTX.quadraticCurveTo(x + w, y, x + w, y + rad);
+  CTX.lineTo(x + w, y + h - rad);
+  CTX.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+  CTX.lineTo(x + rad, y + h);
+  CTX.quadraticCurveTo(x, y + h, x, y + h - rad);
+  CTX.lineTo(x, y + rad);
+  CTX.quadraticCurveTo(x, y, x + rad, y);
+  CTX.closePath();
+}
+
+function fillRR(x, y, w, h, r, fill) {
+  roundRectPath(x, y, w, h, r);
+  CTX.fillStyle = fill;
+  CTX.fill();
+}
+
+function strokeRR(x, y, w, h, r, color, width) {
+  roundRectPath(x, y, w, h, r);
+  CTX.strokeStyle = color;
+  CTX.lineWidth = width;
+  CTX.stroke();
+}
+
+function vGrad(x, y, w, h, top, bottom) {
+  var g = CTX.createLinearGradient(x, y, x, y + h);
+  g.addColorStop(0, top);
+  g.addColorStop(1, bottom);
+  return g;
+}
+
+function withShadow(color, blur, ox, oy, fn) {
+  CTX.save();
+  CTX.shadowColor = color;
+  CTX.shadowBlur = blur;
+  CTX.shadowOffsetX = ox || 0;
+  CTX.shadowOffsetY = oy || 0;
+  fn();
+  CTX.restore();
+}
+
+/** Text with optional gradient fill, outline and shadow. Returns the width used. */
+function TXT(str, x, y, o) {
+  var opts = o || {};
+  var size = opts.size || 16;
+  var weight = opts.weight || '700';
+  var maxW = opts.maxW || 0;
+  setFont(size, weight);
+  var text = String(str);
+  if (maxW > 0) {
+    var w = CTX.measureText(text).width;
+    while (w > maxW && size > 7) {
+      size -= 0.5;
+      setFont(size, weight);
+      w = CTX.measureText(text).width;
+    }
+  }
+  CTX.save();
+  CTX.textAlign = opts.align || 'center';
+  CTX.textBaseline = opts.baseline || 'middle';
+  if (opts.letterSpacing && 'letterSpacing' in CTX) CTX.letterSpacing = opts.letterSpacing;
+  if (opts.alpha !== undefined) CTX.globalAlpha = opts.alpha;
+  if (opts.shadow) {
+    CTX.shadowColor = opts.shadow.color;
+    CTX.shadowBlur = opts.shadow.blur || 0;
+    CTX.shadowOffsetX = opts.shadow.ox || 0;
+    CTX.shadowOffsetY = opts.shadow.oy || 0;
+  }
+  if (opts.outline) {
+    CTX.lineJoin = 'round';
+    CTX.lineCap = 'round';
+    CTX.lineWidth = opts.outline.width || 4;
+    CTX.strokeStyle = opts.outline.color;
+    CTX.strokeText(text, x, y);
+    CTX.shadowColor = 'rgba(0,0,0,0)';
+  }
+  if (opts.grad) {
+    /* A gradient fill needs the text's bounding box, so the glyphs are drawn in
+       left-aligned mode at a computed origin — re-using the current alignment
+       here would centre the run a second time and shift it off the outline. */
+    var tw = CTX.measureText(text).width;
+    var left = CTX.textAlign === 'center' ? x - tw / 2 : (CTX.textAlign === 'right' ? x - tw : x);
+    var g = CTX.createLinearGradient(0, y - size * 0.62, 0, y + size * 0.58);
+    g.addColorStop(0, opts.grad[0]);
+    g.addColorStop(1, opts.grad[1]);
+    CTX.fillStyle = g;
+    CTX.textAlign = 'left';
+    CTX.fillText(text, left, y);
+  } else {
+    CTX.fillStyle = opts.color || '#000';
+    CTX.fillText(text, x, y);
+  }
+  var used = CTX.measureText(text).width;
+  CTX.restore();
+  return used;
+}
+
+/** A glossy magnet bead. `notch` shape encodes the seat so colour is not the only cue.
+ *  Beads are painted once into an offscreen sprite and blitted from then on — a busy
+ *  board draws 40+ of them per frame, and gradients per bead per frame is the single
+ *  most expensive thing this game could do. */
+var _beadCache = {};
+var _beadStamp = '';
+
+function beadStamp() { return getThemeId() + ':' + Math.round(LAY.scale * VIEW.dpr * 100); }
+
+function paintBead(g, x, y, r, seat, glowColor, notch, wantShadow) {
+  var base = seat < 0 ? '#9E9E9E' : seatColor(seat);
+  var dark = seat < 0 ? '#6D6D6D' : seatDark(seat);
+  var light = seat < 0 ? '#C9C9C9' : seatLight(seat);
+
+  if (glowColor) {
+    var gl = g.createRadialGradient(x, y, r * 0.7, x, y, r * 1.75);
+    gl.addColorStop(0, rgba(glowColor, 0.42));
+    gl.addColorStop(1, rgba(glowColor, 0));
+    g.beginPath();
+    g.arc(x, y, r * 1.75, 0, TAU);
+    g.fillStyle = gl;
+    g.fill();
+  }
+
+  if (wantShadow) {
+    g.shadowColor = 'rgba(40,26,16,0.34)';
+    g.shadowBlur = r * 0.55;
+    g.shadowOffsetY = r * 0.28;
+  }
+  var body = g.createRadialGradient(x - r * 0.34, y - r * 0.40, r * 0.10, x, y, r * 1.06);
+  body.addColorStop(0, light);
+  body.addColorStop(0.55, base);
+  body.addColorStop(1, dark);
+  g.beginPath();
+  g.arc(x, y, r, 0, TAU);
+  g.fillStyle = body;
+  g.fill();
+  g.shadowColor = 'rgba(0,0,0,0)';
+  g.shadowBlur = 0;
+  g.shadowOffsetY = 0;
+
+  g.beginPath();
+  g.arc(x, y, r * 0.97, 0, TAU);
+  g.strokeStyle = rgba(dark, 0.75);
+  g.lineWidth = Math.max(0.8, r * 0.07);
+  g.stroke();
+
+  g.beginPath();
+  g.ellipse(x - r * 0.30, y - r * 0.36, r * 0.30, r * 0.20, -0.6, 0, TAU);
+  g.fillStyle = 'rgba(255,255,255,0.82)';
+  g.fill();
+
+  if (notch && r >= 6) {
+    var nr = r * 0.26;
+    g.strokeStyle = 'rgba(255,255,255,0.9)';
+    g.lineWidth = Math.max(1.1, r * 0.085);
+    g.lineJoin = 'round';
+    var shape = (seat < 0 ? 4 : seat) % 4;
+    if (shape === 0) {
+      g.beginPath(); g.arc(x, y, nr, 0, TAU); g.stroke();
+    } else if (shape === 1) {
+      var q = nr * 0.85;
+      g.beginPath(); g.rect(x - q, y - q, q * 2, q * 2); g.stroke();
+    } else if (shape === 2) {
+      g.beginPath();
+      g.moveTo(x, y - nr * 1.1); g.lineTo(x - nr, y + nr * 0.8); g.lineTo(x + nr, y + nr * 0.8);
+      g.closePath(); g.stroke();
+    } else {
+      g.beginPath();
+      g.moveTo(x, y - nr * 1.15); g.lineTo(x + nr * 1.15, y); g.lineTo(x, y + nr * 1.15); g.lineTo(x - nr * 1.15, y);
+      g.closePath(); g.stroke();
+    }
+  }
+}
+
+function beadSprite(seat, r, glowColor, notch, wantShadow) {
+  var stamp = beadStamp();
+  if (stamp !== _beadStamp) { _beadCache = {}; _beadStamp = stamp; }
+  var key = seat + '|' + Math.round(r * 2) + '|' + (glowColor || '-') + '|' + (notch ? 1 : 0) + '|' + (wantShadow ? 1 : 0);
+  var hit = _beadCache[key];
+  if (hit) return hit;
+  var pad = r * 0.95 + 1.5;               /* room for the body shadow and any glow */
+  var span = (r + pad) * 2;
+  var s = LAY.scale * VIEW.dpr;
+  var c = document.createElement('canvas');
+  c.width = Math.max(2, Math.ceil(span * s));
+  c.height = Math.max(2, Math.ceil(span * s));
+  var g2 = c.getContext('2d');
+  g2.setTransform(s, 0, 0, s, 0, 0);
+  paintBead(g2, span / 2, span / 2, r, seat, glowColor, notch, wantShadow);
+  hit = { canvas: c, span: span };
+  _beadCache[key] = hit;
+  return hit;
+}
+
+function drawBead(x, y, r, seat, o) {
+  var opts = o || {};
+  var alpha = opts.alpha === undefined ? 1 : opts.alpha;
+  var scale = opts.scale === undefined ? 1 : opts.scale;
+  if (r * scale <= 0.4 || alpha <= 0.01) return;
+  var spr = beadSprite(seat, r, opts.glow || null, opts.notch !== false, opts.shadow !== false);
+  var w = spr.span * scale;
+  CTX.save();
+  CTX.globalAlpha = alpha;
+  CTX.drawImage(spr.canvas, x - w / 2, y - w / 2, w, w);
+  CTX.restore();
+}
+
+/** Four-point spark, drawn as two tapered triangles. */
+function drawSpark(x, y, size, color, alpha) {
+  CTX.save();
+  CTX.globalAlpha = alpha === undefined ? 1 : alpha;
+  CTX.translate(x, y);
+  CTX.fillStyle = color;
+  CTX.beginPath();
+  CTX.moveTo(0, -size);
+  CTX.quadraticCurveTo(size * 0.16, -size * 0.16, size, 0);
+  CTX.quadraticCurveTo(size * 0.16, size * 0.16, 0, size);
+  CTX.quadraticCurveTo(-size * 0.16, size * 0.16, -size, 0);
+  CTX.quadraticCurveTo(-size * 0.16, -size * 0.16, 0, -size);
+  CTX.fill();
+  CTX.beginPath();
+  CTX.arc(0, 0, size * 0.34, 0, TAU);
+  CTX.fillStyle = 'rgba(255,255,255,0.95)';
+  CTX.fill();
+  CTX.restore();
+}
+
+/** The game mark: two beads pulling together across a live spark. */
+function drawMark(cx, cy, size, t) {
+  var r = size * 0.30;
+  var pulse = t ? 1 + Math.sin(t * 3.1) * 0.05 : 1;
+  var gap = r * 0.92;
+  drawBead(cx - gap, cy, r, 0, { shadow: false });
+  drawBead(cx + gap, cy, r, 1, { shadow: false });
+  var s = size * 0.24 * pulse;
+  CTX.save();
+  CTX.globalCompositeOperation = 'lighter';
+  drawSpark(cx, cy, s, T().warn, 1);
+  CTX.restore();
+}
+
+/* ── background ─────────────────────────────────────────────────────────── */
+var _deco = [];
+function ensureDeco() {
+  if (_deco.length) return;
+  var t = T();
+  var rnd = mulberry32(99);
+  var orbs = t.orbs && t.orbs.length ? t.orbs : [];
+  for (var i = 0; i < 16; i += 1) {
+    _deco.push({
+      x: rnd() * LAY.DW,
+      y: rnd() * LAY.DH,
+      r: 6 + rnd() * 22,
+      c: orbs.length ? orbs[Math.floor(rnd() * orbs.length)] : t.primary,
+      sp: 0.10 + rnd() * 0.30,
+      ph: rnd() * TAU,
+      rot: rnd() * TAU
+    });
+  }
+}
+function resetDeco() {
+  _deco = [];
+  _beadCache = {};
+  _beadStamp = '';
+  _boardCache = null;
+  _grainPattern = null;
+}
+
+function drawBackground(t, time) {
+  var theme = T();
+  var g = CTX.createLinearGradient(0, 0, 0, VIEW.vh);
+  g.addColorStop(0, theme.bg[0]);
+  g.addColorStop(1, theme.bg[1]);
+  CTX.fillStyle = g;
+  CTX.fillRect(0, 0, VIEW.vw, VIEW.vh);
+
+  ensureDeco();
+  CTX.save();
+  CTX.translate(LAY.stageX, LAY.stageY);
+  CTX.scale(LAY.scale, LAY.scale);
+  if (theme.deco === 'kraft') {
+    CTX.strokeStyle = rgba(theme.boardEdge, 0.10);
+    CTX.lineWidth = 1;
+    for (var k = -LAY.DH; k < LAY.DW + LAY.DH; k += 34) {
+      CTX.beginPath();
+      CTX.moveTo(k, 0);
+      CTX.lineTo(k - LAY.DH * 0.35, LAY.DH);
+      CTX.stroke();
+    }
+  } else {
+    for (var i = 0; i < _deco.length; i += 1) {
+      var d = _deco[i];
+      var oy = time ? Math.sin(time * d.sp + d.ph) * 9 : 0;
+      var ox = time ? Math.cos(time * d.sp * 0.7 + d.ph) * 6 : 0;
+      if (theme.deco === 'particles') {
+        CTX.globalAlpha = 0.20 + 0.14 * (Math.sin(time * d.sp * 2 + d.ph) * 0.5 + 0.5);
+        CTX.fillStyle = d.c;
+        CTX.beginPath();
+        CTX.arc(d.x + ox, d.y + oy, d.r * 0.16, 0, TAU);
+        CTX.fill();
+      } else {
+        CTX.globalAlpha = 0.13;
+        CTX.fillStyle = d.c;
+        CTX.beginPath();
+        CTX.arc(d.x + ox, d.y + oy, d.r, 0, TAU);
+        CTX.fill();
+      }
+    }
+  }
+  CTX.restore();
+}
+
+/** Paper grain, tiled from assets/grain.png — skipped entirely if unavailable. */
+function drawGrain(x, y, w, h) {
+  var img = assetImage('grain');
+  if (!img) return;
+  if (!_grainPattern) {
+    try { _grainPattern = CTX.createPattern(img, 'repeat'); } catch (e) { _grainPattern = null; }
+  }
+  if (!_grainPattern) return;
+  CTX.save();
+  CTX.beginPath();
+  CTX.rect(x, y, w, h);
+  CTX.clip();
+  CTX.globalAlpha = 0.5;
+  CTX.fillStyle = _grainPattern;
+  CTX.fillRect(x, y, w, h);
+  CTX.restore();
+}
+
+/* ── board bitmap ───────────────────────────────────────────────────────── */
+/* The table surface never changes while beads move on top of it, so cells, grid,
+   grain and the panel bevel are painted once into an offscreen bitmap and blitted
+   per frame. Also keeps the cell pattern a clean checkerboard instead of confetti. */
+var _boardCache = null;
+var _boardPattern = null;
+
+function boardBitmap(cols, rows, cell) {
+  var theme = T();
+  var key = cols + 'x' + rows + '@' + Math.round(cell * 100) + ':' +
+    getThemeId() + ':' + Math.round(LAY.scale * VIEW.dpr * 100);
+  if (_boardCache && _boardCache.key === key) return _boardCache;
+
+  var gw = cols * cell;
+  var gh = rows * cell;
+  var pad = 15;                       /* panel margin + its drop shadow */
+  var spanW = gw + pad * 2;
+  var spanH = gh + pad * 2;
+  var s = LAY.scale * VIEW.dpr;
+  var c = document.createElement('canvas');
+  c.width = Math.max(2, Math.ceil(spanW * s));
+  c.height = Math.max(2, Math.ceil(spanH * s));
+  var g = c.getContext('2d');
+  g.setTransform(s, 0, 0, s, 0, 0);
+
+  var x0 = pad;
+  var y0 = pad;
+
+  /* panel with a soft drop shadow */
+  g.save();
+  g.shadowColor = 'rgba(40,24,10,0.26)';
+  g.shadowBlur = 16;
+  g.shadowOffsetY = 6;
+  roundRectOn(g, x0 - 8, y0 - 8, gw + 16, gh + 16, 16);
+  g.fillStyle = theme.boardBg;
+  g.fill();
+  g.restore();
+  roundRectOn(g, x0 - 8, y0 - 8, gw + 16, gh + 16, 16);
+  g.strokeStyle = rgba(theme.boardEdge, 0.55);
+  g.lineWidth = 1.6;
+  g.stroke();
+  roundRectOn(g, x0 - 5, y0 - 5, gw + 10, gh + 10, 13);
+  g.strokeStyle = 'rgba(255,255,255,0.30)';
+  g.lineWidth = 1;
+  g.stroke();
+
+  /* checkerboard */
+  var tints = theme.cellTints;
+  for (var cx2 = 0; cx2 < cols; cx2 += 1) {
+    for (var ry = 0; ry < rows; ry += 1) {
+      g.fillStyle = (cx2 + ry) % 2 === 0 ? tints[0] : (tints[1] || tints[0]);
+      g.fillRect(x0 + cx2 * cell, y0 + ry * cell, cell, cell);
+    }
+  }
+
+  /* grid */
+  g.strokeStyle = theme.cellLine;
+  g.lineWidth = Math.max(0.5, cell * 0.02);
+  g.beginPath();
+  for (var i = 0; i <= cols; i += 1) {
+    g.moveTo(x0 + i * cell, y0);
+    g.lineTo(x0 + i * cell, y0 + gh);
+  }
+  for (var j = 0; j <= rows; j += 1) {
+    g.moveTo(x0, y0 + j * cell);
+    g.lineTo(x0 + gw, y0 + j * cell);
+  }
+  g.stroke();
+
+  /* grain */
+  var gi = assetImage('grain');
+  if (gi) {
+    try {
+      if (!_boardPattern) _boardPattern = g.createPattern(gi, 'repeat');
+      if (_boardPattern) {
+        g.globalAlpha = 0.5;
+        g.fillStyle = _boardPattern;
+        g.fillRect(x0, y0, gw, gh);
+        g.globalAlpha = 1;
+      }
+    } catch (e) { /* pattern unsupported: skip the texture */ }
+  }
+
+  /* soft top-light so the surface is not flat */
+  var vg = g.createLinearGradient(0, y0, 0, y0 + gh);
+  vg.addColorStop(0, 'rgba(255,255,255,0.22)');
+  vg.addColorStop(0.45, 'rgba(255,255,255,0.02)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.07)');
+  g.fillStyle = vg;
+  g.fillRect(x0, y0, gw, gh);
+
+  _boardCache = { key: key, canvas: c, spanW: spanW, spanH: spanH, pad: pad, gw: gw, gh: gh };
+  return _boardCache;
+}
+
+function roundRectOn(g, x, y, w, h, r) {
+  var rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  g.beginPath();
+  g.moveTo(x + rad, y);
+  g.lineTo(x + w - rad, y);
+  g.quadraticCurveTo(x + w, y, x + w, y + rad);
+  g.lineTo(x + w, y + h - rad);
+  g.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+  g.lineTo(x + rad, y + h);
+  g.quadraticCurveTo(x, y + h, x, y + h - rad);
+  g.lineTo(x, y + rad);
+  g.quadraticCurveTo(x, y, x + rad, y);
+  g.closePath();
+}
+
+/* ── composite widgets ──────────────────────────────────────────────────── */
+
+/* Word wrap that also works for Chinese, which has no spaces: CJK codepoints and
+   punctuation become their own tokens while Latin runs stay whole. */
+var _tokRe = /[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]|[^\s\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]+|\s+/g;
+
+function wrapText(text, maxW, size, weight) {
+  setFont(size, weight);
+  var tokens = String(text).match(_tokRe) || [];
+  var lines = [];
+  var line = '';
+  for (var i = 0; i < tokens.length; i += 1) {
+    var tok = tokens[i];
+    var candidate = line + tok;
+    if (line !== '' && CTX.measureText(candidate).width > maxW) {
+      lines.push(line.replace(/\s+$/, ''));
+      line = /^\s+$/.test(tok) ? '' : tok;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line.trim() !== '') lines.push(line.replace(/\s+$/, ''));
+  return lines;
+}
+
+/** Draw wrapped text; returns the height consumed. */
+function paragraph(text, x, y, maxW, o) {
+  var opts = o || {};
+  var size = opts.size || 13;
+  var lh = size * (opts.lineHeight || 1.5);
+  var lines = wrapText(text, maxW, size, opts.weight);
+  for (var i = 0; i < lines.length; i += 1) {
+    TXT(lines[i], x, y + lh * (i + 0.5), {
+      size: size, weight: opts.weight, align: opts.align || 'left',
+      color: opts.color, baseline: 'middle'
+    });
+  }
+  return lines.length * lh;
+}
+
+function paragraphHeight(text, maxW, size, weight, lineHeight) {
+  return wrapText(text, maxW, size, weight).length * size * (lineHeight || 1.5);
+}
+
+function drawCard(x, y, w, h, r, o) {
+  var theme = T();
+  var opts = o || {};
+  var bg = opts.bg || theme.cardBg;
+  withShadow('rgba(46,28,14,0.16)', opts.shadowBlur === undefined ? 10 : opts.shadowBlur, 0, 4, function () {
+    fillRR(x, y, w, h, r, bg);
+  });
+  /* top light edge gives the plastic-card read */
+  roundRectPath(x + 1, y + 1, w - 2, h * 0.5, r * 0.9);
+  CTX.strokeStyle = 'rgba(255,255,255,0.34)';
+  CTX.lineWidth = 1.2;
+  CTX.stroke();
+}
+
+function drawChip(x, y, w, h, label, active, o) {
+  var theme = T();
+  var opts = o || {};
+  if (active) {
+    withShadow('rgba(46,28,14,0.22)', 8, 0, 3, function () {
+      fillRR(x, y, w, h, h / 2, vGrad(x, y, w, h, theme.btnGrad[0], theme.btnGrad[1]));
+    });
+    roundRectPath(x + 2, y + 2, w - 4, h * 0.44, h * 0.22);
+    CTX.strokeStyle = 'rgba(255,255,255,0.42)';
+    CTX.lineWidth = 1.1;
+    CTX.stroke();
+    TXT(label, x + w / 2, y + h / 2 + 0.5, {
+      size: opts.size || 14, color: theme.btnText, maxW: w - 10,
+      shadow: { color: 'rgba(0,0,0,0.20)', blur: 2, oy: 1 }
+    });
+  } else {
+    fillRR(x, y, w, h, h / 2, opts.bg || (theme.dark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.62)'));
+    TXT(label, x + w / 2, y + h / 2 + 0.5, { size: opts.size || 14, color: theme.muted, maxW: w - 10 });
+  }
+}
+
+function drawButton(x, y, w, h, label, pressed, o) {
+  var theme = T();
+  var opts = o || {};
+  var dy = pressed ? 1.5 : 0;
+  var top = opts.grad ? opts.grad[0] : theme.btnGrad[0];
+  var bot = opts.grad ? opts.grad[1] : theme.btnGrad[1];
+  /* drop edge */
+  fillRR(x, y + 3.5, w, h, h / 2, rgba(opts.edge || theme.boardEdge, 0.35));
+  withShadow('rgba(46,28,14,0.28)', 12, 0, 5, function () {
+    fillRR(x, y + dy, w, h, h / 2, vGrad(x, y + dy, w, h, top, bot));
+  });
+  roundRectPath(x + 3, y + dy + 2.5, w - 6, h * 0.42, h * 0.22);
+  CTX.strokeStyle = 'rgba(255,255,255,0.46)';
+  CTX.lineWidth = 1.4;
+  CTX.stroke();
+  TXT(label, x + w / 2, y + dy + h / 2 + 0.5, {
+    size: opts.size || 20, color: opts.color || theme.btnText, maxW: w - 22,
+    letterSpacing: opts.letterSpacing || '0px',
+    shadow: { color: 'rgba(0,0,0,0.22)', blur: 3, oy: 1.5 }
+  });
+}
+
+/* Magnetic field ring, used for the live drop preview. */
+function drawFieldRing(x, y, radius, hot, time) {
+  CTX.save();
+  var pulse = 0.72 + 0.28 * Math.sin(time * 5.2);
+  if (hot) {
+    CTX.beginPath();
+    CTX.arc(x, y, radius, 0, TAU);
+    var gg = CTX.createRadialGradient(x, y, radius * 0.35, x, y, radius);
+    gg.addColorStop(0, rgba(T().warn, 0.02));
+    gg.addColorStop(0.72, rgba(T().warn, 0.16));
+    gg.addColorStop(1, rgba(T().warn, 0.40 * pulse));
+    CTX.fillStyle = gg;
+    CTX.fill();
+  }
+  CTX.beginPath();
+  CTX.arc(x, y, radius, 0, TAU);
+  CTX.setLineDash([4, 4]);
+  CTX.lineDashOffset = -time * 14;
+  CTX.strokeStyle = hot ? rgba(T().warn, 0.95) : 'rgba(255,255,255,0.85)';
+  CTX.lineWidth = 2;
+  CTX.stroke();
+  CTX.setLineDash([]);
+  CTX.restore();
+}
+
+
+/* ===== 10-ui.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §10  UI — immediate-mode hit regions, press feedback, toast, modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Regions are registered while drawing (design units), then hit-tested on input.
+   Later registrations sit on top, so the lookup walks backwards. */
+var HITS = [];
+var PRESS = { id: null, x: 0, y: 0, t: 0, moved: false };
+var TOAST = { text: '', t: 0, life: 0 };
+
+function resetHits() { HITS.length = 0; }
+
+function HIT(id, x, y, w, h) {
+  HITS.push({ id: id, x: x, y: y, w: w, h: h });
+  return { id: id, x: x, y: y, w: w, h: h };
+}
+
+function pickHit(x, y) {
+  for (var i = HITS.length - 1; i >= 0; i -= 1) {
+    var r = HITS[i];
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r.id;
+  }
+  return null;
+}
+
+function isPressed(id) { return PRESS.id === id; }
+
+function toast(text) {
+  TOAST.text = text;
+  TOAST.t = 0;
+  TOAST.life = 1.8;
+}
+
+function drawToast(dt) {
+  if (TOAST.life <= 0) return;
+  TOAST.life -= dt;
+  TOAST.t += dt;
+  var p = clamp(TOAST.t / 0.22, 0, 1);
+  var out = clamp(TOAST.life / 0.4, 0, 1);
+  var a = Math.min(p, out);
+  var y = LAY.contentBottom - 46 - (1 - easeOutCubic(p)) * 16;
+  CTX.save();
+  CTX.globalAlpha = a;
+  setFont(14, '700');
+  var w = Math.min(LAY.contentRight - LAY.contentLeft - 20, CTX.measureText(TOAST.text).width + 34);
+  var x = (LAY.contentLeft + LAY.contentRight) / 2 - w / 2;
+  withShadow('rgba(20,10,0,0.30)', 14, 0, 5, function () {
+    fillRR(x, y, w, 34, 17, rgba(T().boardEdge, 0.92));
+  });
+  TXT(TOAST.text, x + w / 2, y + 17.5, { size: 14, color: '#FFF6E6', maxW: w - 20 });
+  CTX.restore();
+}
+
+/** Small round icon button (language switch, close, etc). */
+function drawRoundButton(id, cx, cy, r, label, o) {
+  var theme = T();
+  var opts = o || {};
+  var pressed = isPressed(id);
+  var scale = pressed ? 0.93 : 1;
+  CTX.save();
+  CTX.translate(cx, cy);
+  CTX.scale(scale, scale);
+  withShadow('rgba(46,28,14,0.22)', 9, 0, 3, function () {
+    CTX.beginPath();
+    CTX.arc(0, 0, r, 0, TAU);
+    CTX.fillStyle = opts.bg || (theme.dark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.78)');
+    CTX.fill();
+  });
+  CTX.beginPath();
+  CTX.arc(0, 0, r * 0.94, 0, TAU);
+  CTX.strokeStyle = 'rgba(255,255,255,0.5)';
+  CTX.lineWidth = 1.1;
+  CTX.stroke();
+  TXT(label, 0, 1, { size: opts.size || r * 0.86, color: opts.color || theme.text, weight: '800' });
+  CTX.restore();
+  HIT(id, cx - r, cy - r, r * 2, r * 2);
+}
+
+/** Screen header: back affordance on the left, centred title. */
+function drawHeader(title, backId, time) {
+  var cy = LAY.contentTop + 18;
+  var theme = T();
+  if (backId) {
+    var r = 16;
+    var cx = LAY.contentLeft + r;
+    var pressed = isPressed(backId);
+    CTX.save();
+    CTX.translate(cx, cy);
+    CTX.scale(pressed ? 0.93 : 1, pressed ? 0.93 : 1);
+    withShadow('rgba(46,28,14,0.20)', 8, 0, 3, function () {
+      CTX.beginPath();
+      CTX.arc(0, 0, r, 0, TAU);
+      CTX.fillStyle = theme.dark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.78)';
+      CTX.fill();
+    });
+    CTX.beginPath();
+    CTX.moveTo(4, -6); CTX.lineTo(-3, 0); CTX.lineTo(4, 6);
+    CTX.strokeStyle = theme.text; CTX.lineWidth = 2.4; CTX.lineCap = 'round'; CTX.lineJoin = 'round';
+    CTX.stroke();
+    CTX.restore();
+    HIT(backId, cx - r, cy - r, r * 2, r * 2);
+  }
+  TXT(title, (LAY.contentLeft + LAY.contentRight) / 2, cy, {
+    size: 19, color: theme.text, maxW: LAY.contentRight - LAY.contentLeft - 80,
+    shadow: { color: 'rgba(255,255,255,0.4)', blur: 3, oy: 1 }
+  });
+  return cy;
+}
+
+/** Modal card, centred. Returns the content rect. */
+function drawModalCard(w, h, time) {
+  var x = (LAY.contentLeft + LAY.contentRight) / 2 - w / 2;
+  var y = (LAY.contentTop + LAY.contentBottom) / 2 - h / 2;
+  CTX.fillStyle = 'rgba(20,12,6,0.42)';
+  CTX.fillRect(-LAY.stageX / LAY.scale, -LAY.stageY / LAY.scale,
+    VIEW.vw / LAY.scale, VIEW.vh / LAY.scale);
+  var pop = time === undefined ? 1 : clamp(time / 0.22, 0, 1);
+  CTX.save();
+  CTX.translate(x + w / 2, y + h / 2);
+  var s = 0.94 + 0.06 * easeOutBack(pop);
+  CTX.scale(s, s);
+  CTX.translate(-(x + w / 2), -(y + h / 2));
+  drawCard(x, y, w, h, 20, { shadowBlur: 22 });
+  CTX.restore();
+  return { x: x, y: y, w: w, h: h };
+}
+
+
+/* ===== 11-scene-home.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §11  SCENE · HOME — mode, table size, AI level, theme, play
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var HOME = {
+  time: 0,
+  hit: {},
+
+  draw: function (dt, time) {
+    this.time += dt;
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var W = R - L;
+    var cx = (L + R) / 2;
+
+    /* ── top bar: rules / about on the left, language on the right ── */
+    /* +4 keeps the round buttons fully inside the top guard band, not straddling it. */
+    var barY = LAY.contentTop + 4;
+    var barH = 28;
+    var bw = 62;
+    drawChip(L, barY, bw, barH, tr('home.rules'), isPressed('rules'), { size: 13 });
+    HIT('rules', L, barY, bw, barH);
+    drawChip(L + bw + 8, barY, bw, barH, tr('home.about'), isPressed('about'), { size: 13 });
+    HIT('about', L + bw + 8, barY, bw, barH);
+
+    drawRoundButton('lang', R - 15, barY + barH / 2, 15, tr('home.lang'), { size: 15 });
+    drawRoundButton('sound', R - 15 - 38, barY + barH / 2, 15, SFX.isEnabled() ? '\u266A' : '\u2715', { size: 14 });
+
+    /* ── title block ── */
+    var markCY = barY + barH + 44;
+    drawMark(cx, markCY, 74, this.time);
+    TXT(tr('game.title'), cx, markCY + 50, {
+      size: 37, grad: theme.titleGrad, maxW: W - 24,
+      outline: { color: theme.titleEdge, width: 6 },
+      shadow: { color: 'rgba(60,30,10,0.28)', blur: 6, oy: 3 },
+      letterSpacing: '2px'
+    });
+    TXT(tr('game.subtitle'), cx, markCY + 78, {
+      size: 12.5, color: theme.muted, maxW: W - 40, letterSpacing: '2px'
+    });
+
+    /* ── mode cards ── */
+    var cardY = markCY + 84;
+    var cardH = 88;
+    var gap = 10;
+    var cardW = (W - gap) / 2;
+    var mode = APP.settings.mode;
+    this.modeCard(L, cardY, cardW, cardH, 'ai', mode === 'ai');
+    this.modeCard(L + cardW + gap, cardY, cardW, cardH, 'solo', mode === 'solo');
+
+    /* ── settings block (or the solo note in its place) ── */
+    var y = cardY + cardH + 16;
+    if (mode === 'ai') {
+      y = this.segment('players', 'home.players', y, [
+        { id: '2', label: tr('home.players.n', { n: 2 }), on: APP.settings.players === 2 },
+        { id: '3', label: tr('home.players.n', { n: 3 }), on: APP.settings.players === 3 },
+        { id: '4', label: tr('home.players.n', { n: 4 }), on: APP.settings.players === 4 }
+      ]);
+      y = this.segment('diff', 'home.difficulty', y + 6, [
+        { id: 'easy', label: tr('home.diff.easy'), on: APP.settings.difficulty === 'easy' },
+        { id: 'normal', label: tr('home.diff.normal'), on: APP.settings.difficulty === 'normal' },
+        { id: 'hard', label: tr('home.diff.hard'), on: APP.settings.difficulty === 'hard' }
+      ]);
+    } else {
+      y = this.soloNote(y, W);
+    }
+
+    /* ── theme picker ── */
+    y += 6;
+    TXT(tr('home.theme'), L + 2, y + 6, { size: 12, align: 'left', color: theme.muted });
+    y += 16;
+    var tIds = themeIds();
+    var tw = (W - 2 * 8) / tIds.length;
+    for (var i = 0; i < tIds.length; i += 1) {
+      this.themeChip(L + i * (tw + 8), y, tw, 50, tIds[i]);
+    }
+    y += 50;
+
+    /* ── play ── */
+    var playY = Math.min(y + 18, LAY.contentBottom - 58 - 26);
+    drawButton(L, playY, W, 58, tr('home.play'), isPressed('play'), { size: 23, letterSpacing: '4px' });
+    HIT('play', L, playY, W, 58);
+
+    /* ── saved progress ── */
+    var stats = readStats();
+    var line;
+    if (APP.settings.mode === 'solo') {
+      line = tr('home.stats.solo', { s: stats.soloBest });
+    } else {
+      line = tr('home.stats.duel', { w: stats.duelWins, g: stats.duelGames }) + '  ·  ' +
+        tr('home.stats.best', { s: stats.bestStreak });
+    }
+    TXT(line, cx, Math.min(playY + 58 + 18, LAY.contentBottom - 6), {
+      size: 12, color: theme.muted, maxW: W
+    });
+  },
+
+  modeCard: function (x, y, w, h, kind, on) {
+    var theme = T();
+    var id = 'mode:' + kind;
+    var pressed = isPressed(id);
+    var s = pressed ? 0.985 : 1;
+    CTX.save();
+    CTX.translate(x + w / 2, y + h / 2);
+    CTX.scale(s, s);
+    CTX.translate(-(x + w / 2), -(y + h / 2));
+    withShadow(on ? 'rgba(46,28,14,0.26)' : 'rgba(46,28,14,0.14)', on ? 14 : 8, 0, 4, function () {
+      fillRR(x, y, w, h, 18, theme.cardBg);
+    });
+    if (on) {
+      strokeRR(x + 1, y + 1, w - 2, h - 2, 17, theme.accent, 2.6);
+      CTX.beginPath();
+      CTX.arc(x + w - 15, y + 15, 9, 0, TAU);
+      CTX.fillStyle = theme.accent;
+      CTX.fill();
+      CTX.beginPath();
+      CTX.moveTo(x + w - 19, y + 15);
+      CTX.lineTo(x + w - 16, y + 18);
+      CTX.lineTo(x + w - 11, y + 11.5);
+      CTX.strokeStyle = '#FFFFFF';
+      CTX.lineWidth = 2.2;
+      CTX.lineCap = 'round';
+      CTX.lineJoin = 'round';
+      CTX.stroke();
+    } else {
+      strokeRR(x + 1, y + 1, w - 2, h - 2, 17, theme.dark ? 'rgba(255,255,255,0.16)' : 'rgba(120,90,50,0.16)', 1.6);
+    }
+    CTX.restore();
+
+    var icx = x + 30;
+    var icy = y + 32;
+    if (kind === 'ai') {
+      drawBead(icx, icy, 13, 0, { shadow: false });
+      drawBead(icx + 20, icy + 9, 8, 1, { shadow: false, notch: false });
+      drawBead(icx + 8, icy + 17, 7, 2, { shadow: false, notch: false });
+    } else {
+      drawBead(icx + 4, icy, 11, 3, { shadow: false });
+      drawBead(icx + 20, icy - 6, 7, -1, { shadow: false, notch: false });
+      drawBead(icx + 21, icy + 12, 7, -1, { shadow: false, notch: false });
+    }
+    TXT(tr(kind === 'ai' ? 'home.mode.ai' : 'home.mode.solo'), x + 14, y + 60, {
+      size: 16, align: 'left', color: theme.text, maxW: w - 24
+    });
+    TXT(tr(kind === 'ai' ? 'home.mode.ai.sub' : 'home.mode.solo.sub'), x + 14, y + 76, {
+      size: 10.5, align: 'left', color: theme.muted, maxW: w - 24
+    });
+    HIT(id, x, y, w, h);
+  },
+
+  /* Label + chip row. Returns the y after the row. */
+  segment: function (group, labelKey, y, items) {
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    TXT(tr(labelKey), L + 2, y + 6, { size: 12, align: 'left', color: theme.muted });
+    var top = y + 16;
+    var h = 32;
+    var gap = 8;
+    var w = (R - L - gap * (items.length - 1)) / items.length;
+    for (var i = 0; i < items.length; i += 1) {
+      var x = L + i * (w + gap);
+      var id = group + ':' + items[i].id;
+      drawChip(x, top, w, h, items[i].label, items[i].on, {});
+      HIT(id, x, top, w, h);
+    }
+    return top + h;
+  },
+
+  soloNote: function (y, W) {
+    var theme = T();
+    var h = 76;
+    drawCard(LAY.contentLeft, y, W, h, 16, { shadowBlur: 6 });
+    drawBead(LAY.contentLeft + 28, y + h / 2, 14, 3, {});
+    var s = readStats();
+    TXT(tr('home.stats.solo', { s: s.soloBest }), LAY.contentLeft + 54, y + 26, {
+      size: 15, align: 'left', color: theme.text, maxW: W - 70
+    });
+    TXT(tr('board.hint.solo'), LAY.contentLeft + 54, y + 48, {
+      size: 11, align: 'left', color: theme.muted, maxW: W - 70
+    });
+    return y + h;
+  },
+
+  themeChip: function (x, y, w, h, id) {
+    var on = getThemeId() === id;
+    var theme = null;
+    for (var i = 0; i < THEMES.length; i += 1) { if (THEMES[i].id === id) theme = THEMES[i]; }
+    if (!theme) return;
+    withShadow('rgba(46,28,14,0.16)', on ? 12 : 6, 0, 3, function () {
+      fillRR(x, y, w, h, 14, theme.boardBg);
+    });
+    /* 4x3 mini board so the palette itself is the label */
+    var cols = 4;
+    var rows = 3;
+    var pad = 6;
+    var cw = (w - pad * 2) / cols;
+    var ch = (h - pad * 2 - 14) / rows;
+    for (var c = 0; c < cols; c += 1) {
+      for (var r = 0; r < rows; r += 1) {
+        CTX.fillStyle = theme.cellTints[(c + r) % theme.cellTints.length];
+        CTX.fillRect(x + pad + c * cw, y + pad + r * ch, cw, ch);
+      }
+    }
+    drawBead(x + w * 0.32, y + pad + ch * 1.2, 5, 0, { shadow: false });
+    drawBead(x + w * 0.66, y + pad + ch * 0.7, 5, 1, { shadow: false });
+    TXT(themeName(theme), x + w / 2, y + h - 8, {
+      size: 10, color: theme.text, maxW: w - 8,
+      shadow: { color: rgba(theme.boardBg, 0.9), blur: 3, oy: 0 }
+    });
+    strokeRR(x + 1, y + 1, w - 2, h - 2, 13, on ? theme.accent : 'rgba(0,0,0,0.10)', on ? 2.6 : 1.2);
+    HIT('theme:' + id, x, y, w, h);
+  },
+
+  actions: {
+    'lang': function () { setLang(getLang() === 'zh' ? 'en' : 'zh'); },
+    'sound': function () { SFX.setEnabled(!SFX.isEnabled()); cfgSet('audio.enabled', SFX.isEnabled()); },
+    'rules': function () { APP.go('rules'); },
+    'about': function () { APP.go('about'); },
+    'play': function () { APP.startGame(); }
+  }
+};
+
+function themeName(theme) {
+  var n = theme.name;
+  if (typeof n === 'string') return n;
+  return n[getLang()] || n[FALLBACK_LANG] || n.en || theme.id;
+}
+
+/* Actions that carry a value, kept out of the flat map above. Every value is
+   validated here so a malformed chip id can never corrupt the next game's setup. */
+var DIFFICULTIES = ['easy', 'normal', 'hard'];
+
+function handleHomePick(id) {
+  if (id.indexOf('mode:') === 0) {
+    var m = id.slice(5);
+    if (m === 'ai' || m === 'solo') APP.settings.mode = m;
+    return true;
+  }
+  if (id.indexOf('players:') === 0) {
+    var p = Number(id.slice(8));
+    if (isFinite(p) && p >= 2 && p <= cfgGet('rules.maxPlayers', 4)) APP.settings.players = p;
+    return true;
+  }
+  if (id.indexOf('diff:') === 0) {
+    var d = id.slice(5);
+    if (DIFFICULTIES.indexOf(d) >= 0) APP.settings.difficulty = d;
+    return true;
+  }
+  if (id.indexOf('theme:') === 0) {
+    if (setThemeId(id.slice(6))) resetDeco();
+    return true;
+  }
+  return false;
+}
+
+
+/* ===== 12-scene-board.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §12  SCENE · BOARD — table, live drop preview, snap resolve, AI turns
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var BS = {
+  game: null,
+  settings: null,
+  render: { board: [], hands: [], score: 0 },
+  geo: null,
+  drag: null,
+  reclaim: null,
+  appear: {},
+  ai: null,
+  banner: null,
+  settle: {},
+  shake: 0,
+  time: 0,
+  over: false,
+  menuOpen: false,
+  band: [],
+
+  enter: function (opts) {
+    BS.game = opts.game;
+    BS.settings = opts.settings;
+    BS.render = {
+      board: opts.game.board.slice(),
+      hands: opts.game.hands.slice(),
+      score: opts.game.score || 0
+    };
+    BS.drag = null;
+    BS.reclaim = null;
+    BS.appear = {};
+    BS.ai = null;
+    BS.banner = null;
+    BS.shake = 0;
+    BS.time = 0;
+    BS.over = false;
+    BS.menuOpen = false;
+    BS.menuT = 0;
+    BS.lastSeat = -1;
+    BS.settle = {};
+    BS.turnDelay = 0.4;
+    /* Compute geometry now rather than lazily on the first draw, so any logic (or
+       test) that asks for a cell position before the next frame gets a real answer. */
+    BS.layout();
+  },
+
+  exit: function () { BS.drag = null; BS.ai = null; BS.reclaim = null; },
+
+  /* ── layout ───────────────────────────────────────────────────────────── */
+  layout: function () {
+    var L = LAY.contentLeft;
+    var W = LAY.contentRight - LAY.contentLeft;
+    var solo = BS.game.mode === 'solo';
+    var bandY = LAY.contentTop;
+    var bandH = 32;
+    var statusY = bandY + bandH + 4;
+    var statusH = 22;
+    var boardTop = statusY + statusH + 4;
+    var trayH = solo ? 62 : 74;
+    var actH = 30;
+    var boardBottom = LAY.contentBottom - actH - 8 - trayH - 8;
+    var trayY = boardBottom + 8;
+    var actY = trayY + trayH + 8;
+
+    var region = { x: L, y: boardTop, w: W, h: boardBottom - boardTop };
+    var pad = 8;
+    var cell = Math.min((region.w - pad * 2) / BS.game.cols, (region.h - pad * 2) / BS.game.rows);
+    var gw = cell * BS.game.cols;
+    var gh = cell * BS.game.rows;
+    BS.geo = {
+      x: region.x, y: region.y, w: region.w, h: region.h,
+      cell: cell,
+      ox: region.x + (region.w - gw) / 2,
+      oy: region.y + (region.h - gh) / 2,
+      gw: gw, gh: gh,
+      r: cell * 0.40,
+      bandY: bandY, bandH: bandH, statusY: statusY,
+      trayY: trayY, trayH: trayH, actY: actY
+    };
+    BS.band = bandLayout(BS.game, L, W, bandY, bandH);
+    return BS.geo;
+  },
+
+  cellCenter: function (col, row) {
+    var g = BS.geo;
+    return { x: g.ox + (col + 0.5) * g.cell, y: g.oy + (row + 0.5) * g.cell };
+  },
+
+  cellAt: function (dx, dy) {
+    var g = BS.geo;
+    var col = Math.round((dx - g.ox) / g.cell - 0.5);
+    var row = Math.round((dy - g.oy) / g.cell - 0.5);
+    if (col < 0 || row < 0 || col >= BS.game.cols || row >= BS.game.rows) return null;
+    var c = BS.cellCenter(col, row);
+    /* Generous grab radius: nearest-cell picking keeps small cells usable. */
+    if (pdist(c.x, c.y, dx, dy) > g.cell * 0.82) return null;
+    return { col: col, row: row, x: c.x, y: c.y };
+  },
+
+  /* ── turn scheduling ──────────────────────────────────────────────────── */
+  scheduleTurn: function () {
+    if (BS.over) return;
+    if (BS.game.over) { BS.finish(); return; }
+    var seat = BS.game.turn;
+    if (seat < 0) { BS.finish(); return; }
+    if (isAISeat(BS.game, seat)) {
+      BS.ai = {
+        t: 0,
+        wait: cfgGet('ai.thinkMin', 0.7) + Math.random() * cfgGet('ai.thinkJitter', 0.6),
+        seat: seat,
+        fly: null
+      };
+    } else if (BS.lastSeat !== seat) {
+      BS.banner = { t: 0, text: tr('board.your-turn') };
+    }
+    BS.lastSeat = seat;
+  },
+
+  /* Short beat between a resolve animation and the next decision. */
+  armTurn: function (delay) { BS.turnDelay = delay; },
+
+  finish: function () {
+    BS.over = true;
+  },
+
+  /* ── committing a move ────────────────────────────────────────────────── */
+  commitMove: function (x, y) {
+    if (BS.game.over || BS.over) return;
+    var prev = BS.game;
+    var res = placePiece(prev, x, y);
+    if (!res.ok) { SFX.bump(); return; }
+    var r = res.result;
+    BS.game = res.game;
+    BS.banner = null;          /* the turn changed: a stale prompt would mislead */
+
+    if (res.foul) {
+      var hit = {};
+      for (var i = 0; i < r.hitIds.length; i += 1) hit[r.hitIds[i]] = true;
+      var going = [];
+      var staying = [];
+      var cells = [];
+      for (var b = 0; b < prev.board.length; b += 1) {
+        if (hit[prev.board[b].id]) going.push(prev.board[b]);
+        else staying.push(prev.board[b]);
+      }
+      /* the new bead never settles: it travels back with the group */
+      var ghost = { x: x, y: y, owner: prev.turn, id: -1000 };
+      going.push(ghost);
+      going.sort(function (a, c) {
+        return pdist(a.x, a.y, x, y) - pdist(c.x, c.y, x, y);
+      });
+      for (var j = 0; j < going.length; j += 1) {
+        cells.push(BS.cellCenter(going[j].x, going[j].y));
+      }
+      BS.render.board = staying.concat(going);
+      var chainDelay = cfgGet('anim.snapChainDelayMs', 80) / 1000;
+      BS.reclaim = {
+        t: 0,
+        seat: prev.turn,
+        list: going,
+        cells: cells,
+        gain: r.hitIds.length,
+        chainDelay: chainDelay,
+        dur: (going.length - 1) * chainDelay + cfgGet('anim.reclaimFlyMs', 340) / 1000,
+        hands: BS.render.hands.slice()
+      };
+      BS.shake = 0.42;
+      for (var k = 0; k < going.length; k += 1) SFX.snap(k);
+    } else {
+      BS.render.board = res.game.board.slice();
+      BS.render.hands = res.game.hands.slice();
+      for (var p = 0; p < BS.render.board.length; p += 1) {
+        if (BS.render.board[p].x === x && BS.render.board[p].y === y) {
+          BS.appear[BS.render.board[p].id] = 0;
+          BS.settle[BS.render.board[p].id] = 0;
+        }
+      }
+      SFX.drop();
+    }
+    BS.armTurn(0.32);
+    BS.lastMoveAt = { x: x, y: y, foul: !!res.foul };
+  },
+
+  reclaimStep: function (dt) {
+    var rc = BS.reclaim;
+    if (!rc) return;
+    rc.t += dt;
+    if (rc.t >= rc.dur) {
+      BS.render.board = BS.game.board.slice();
+      BS.render.hands = BS.game.hands.slice();
+      BS.reclaim = null;
+      BS.armTurn(0.15);
+      return;
+    }
+    /* hand counter ticks up as the group lands, one bead at a time */
+    var landed = 0;
+    for (var i = 0; i < rc.list.length; i += 1) {
+      if (rc.t >= i * rc.chainDelay + cfgGet('anim.reclaimFlyMs', 340) / 1000) landed += 1;
+    }
+    var hands = rc.hands.slice();
+    hands[rc.seat] += landed;
+    BS.render.hands = hands;
+  },
+
+  /* ── update ───────────────────────────────────────────────────────────── */
+  update: function (dt) {
+    BS.time += dt;
+    if (BS.shake > 0) BS.shake = Math.max(0, BS.shake - dt * 1.7);
+    if (BS.banner) {
+      BS.banner.t += dt;
+      if (BS.banner.t > cfgGet('anim.turnBannerMs', 820) / 1000) BS.banner = null;
+    }
+    for (var id in BS.appear) {
+      if (Object.prototype.hasOwnProperty.call(BS.appear, id)) {
+        BS.appear[id] = Math.min(1, BS.appear[id] + dt / (cfgGet('anim.settleBounceMs', 220) / 1000));
+      }
+    }
+    for (var sid in BS.settle) {
+      if (Object.prototype.hasOwnProperty.call(BS.settle, sid)) {
+        BS.settle[sid] = Math.min(1, BS.settle[sid] + dt / 0.5);
+      }
+    }
+
+    if (BS.reclaim) { BS.reclaimStep(dt); return; }
+    if (BS.over) return;
+    if (BS.menuOpen) BS.menuT += dt;
+    if (BS.game.over) { BS.finish(); return; }
+    if (BS.turnDelay > 0) {
+      BS.turnDelay -= dt;
+      if (BS.turnDelay > 0) return;
+      BS.turnDelay = 0;
+      BS.scheduleTurn();
+      return;
+    }
+
+    var ai = BS.ai;
+    if (!ai) return;
+    ai.t += dt;
+    if (!ai.fly) {
+      if (ai.t < ai.wait) return;
+      var cell = chooseMove(BS.game, BS.settings.difficulty);
+      if (!cell) { BS.finish(); return; }
+      var c = BS.cellCenter(cell.x, cell.y);
+      var from = BS.handAnchor(ai.seat);
+      ai.fly = { t: 0, dur: cfgGet('ai.tween', 0.4),
+        from: from, to: c, cell: cell };
+      return;
+    }
+    ai.fly.t += dt;
+    if (ai.fly.t >= ai.fly.dur) {
+      var mv = ai.fly.cell;
+      BS.ai = null;
+      BS.commitMove(mv.x, mv.y);
+    }
+  },
+
+  handAnchor: function (seat) {
+    for (var i = 0; i < BS.band.length; i += 1) {
+      if (BS.band[i].seat === seat) return { x: BS.band[i].x + BS.band[i].w / 2, y: BS.band[i].y + BS.band[i].h / 2 };
+    }
+    return { x: (LAY.contentLeft + LAY.contentRight) / 2, y: LAY.contentTop + 16 };
+  },
+
+  /* ── draw ─────────────────────────────────────────────────────────────── */
+  draw: function (dt, time) {
+    var g = BS.layout();
+    var theme = T();
+    var solo = BS.game.mode === 'solo';
+
+    CTX.save();
+    if (BS.shake > 0) {
+      var m = BS.shake * 5;
+      CTX.translate(Math.sin(time * 61) * m, Math.cos(time * 47) * m);
+    }
+
+    BS.drawBand(time);
+    BS.drawStatus();
+    BS.drawBoard(time);
+    BS.drawTray(time);
+    BS.drawActions();
+    CTX.restore();
+
+    if (BS.banner) BS.drawBanner();
+    if (BS.menuOpen) BS.drawMenu();
+
+    /* floating bead: dragging, or an AI bead in flight */
+    if (BS.drag && BS.drag.active) {
+      var r = g.r * 1.12;
+      drawBead(BS.drag.x, BS.drag.y, r, BS.game.turn, { glow: theme.primary, notch: false });
+      CTX.save();
+      CTX.globalAlpha = 0.75;
+      drawBead(BS.drag.x, BS.drag.y, r * 0.55, BS.game.turn, { shadow: false, notch: true });
+      CTX.restore();
+    }
+    if (BS.ai && BS.ai.fly) {
+      var f = BS.ai.fly;
+      var t = easeInOutCubic(clamp(f.t / f.dur, 0, 1));
+      var px = lerp(f.from.x, f.to.x, t);
+      var py = lerp(f.from.y, f.to.y, t);
+      drawBead(px, py, g.r, BS.ai.seat, { glow: seatColor(BS.ai.seat), notch: false });
+    }
+  },
+
+  /* Player band: one chip per seat, current seat lifted. */
+  drawBand: function (time) {
+    var theme = T();
+    var solo = BS.game.mode === 'solo';
+    for (var i = 0; i < BS.band.length; i += 1) {
+      var c = BS.band[i];
+      var seat = c.seat;
+      var active = BS.game.turn === seat && !BS.game.over;
+      var bg = active ? theme.cardBg : (theme.dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.42)');
+      withShadow(active ? 'rgba(46,28,14,0.24)' : 'rgba(46,28,14,0.10)', active ? 10 : 4, 0, active ? 3 : 1, function () {
+        fillRR(c.x, c.y - (active ? 2 : 0), c.w, c.h, 12, bg);
+      });
+      if (active) {
+        strokeRR(c.x + 1, c.y - 1, c.w - 2, c.h + 2, 12, theme.accent, 2.2);
+      }
+      if (solo) {
+        TXT(tr('board.score', { n: BS.render.score }), c.x + c.w / 2, c.y + c.h / 2, {
+          size: 17, color: theme.text, maxW: c.w - 120
+        });
+        TXT(tr('result.best', { n: readStats().soloBest }), c.x + 12, c.y + c.h / 2, {
+          size: 11, align: 'left', color: theme.muted, maxW: c.w * 0.32
+        });
+        continue;
+      }
+      var dotR = c.h * 0.30;
+      var dx = c.x + 6 + dotR;
+      var dy = c.y + c.h / 2 - (active ? 2 : 0);
+      drawBead(dx, dy, dotR, seat, { shadow: false, notch: true, glow: active ? seatColor(seat) : null });
+      var label = seat === 0 ? tr('board.you', { name: seatName(seat) }) : (isAISeat(BS.game, seat) ? tr('board.ai', { name: seatName(seat) }) : seatName(seat));
+      TXT(label, dx + dotR + 5, dy - 6, { size: 10.5, align: 'left', color: active ? theme.text : theme.muted, maxW: c.w - dotR * 2 - 16 });
+      TXT(tr('board.hand', { n: BS.render.hands[seat] }), dx + dotR + 5, dy + 7, {
+        size: 12, align: 'left', color: theme.text, maxW: c.w - dotR * 2 - 16
+      });
+    }
+  },
+
+  drawStatus: function () {
+    var g = BS.geo;
+    var theme = T();
+    var solo = BS.game.mode === 'solo';
+    var cx = (LAY.contentLeft + LAY.contentRight) / 2;
+    var text;
+    if (BS.reclaim) text = tr('board.foul', { n: BS.reclaim.gain });
+    else if (BS.game.over) text = tr('result.title');
+    else if (solo) text = tr('board.hint.solo');
+    else if (BS.game.turn < 0) text = '';
+    else if (BS.game.turn === 0) text = tr('board.hint.place');
+    else if (isAISeat(BS.game, BS.game.turn)) text = tr('board.ai-turn', { name: seatName(BS.game.turn) });
+    else text = tr('board.turn', { name: seatName(BS.game.turn) });
+
+    /* Hand counts live in the player band, so the status line carries one message
+       in the middle and the single most useful number on the right. */
+    var safe = countSafeCells(BS.game);
+    var sideW = g.w * 0.30;
+    TXT(text, cx, g.statusY + 11, { size: 12.5, color: theme.muted, maxW: g.w - sideW * 2 - 12 });
+    /* Safe cells is the number the whole strategy turns on in both modes. Zero is
+       the inflection point: in a duel every drop now snaps (a warning), while in a
+       solo run it means the board is exhausted (a good thing). */
+    TXT(tr('board.safe-cells', { n: safe }), LAY.contentRight - 2, g.statusY + 11, {
+      size: 12.5, align: 'right', maxW: sideW,
+      color: safe === 0 ? (solo ? theme.primary : theme.warn) : theme.muted,
+      weight: safe === 0 ? '800' : '700'
+    });
+  },
+
+  drawBoard: function (time) {
+    var g = BS.geo;
+    var theme = T();
+    var cell = g.cell;
+
+    /* static surface (panel, checkerboard, grid, grain, light) is a cached bitmap */
+    var bm = boardBitmap(BS.game.cols, BS.game.rows, cell);
+    CTX.drawImage(bm.canvas, g.ox - bm.pad, g.oy - bm.pad, bm.spanW, bm.spanH);
+
+    /* drop preview: the live magnetic field of the cell under the pointer */
+    var target = null;
+    if (BS.drag && BS.drag.active && BS.drag.cell) target = BS.drag.cell;
+    if (target && !BS.game.over && !BS.reclaim) {
+      var hot = isMineCell(BS.game.board, target.col, target.row);
+      var fr = snapRadius() * cell;
+      drawFieldRing(target.x, target.y, fr, hot, time);
+      if (hot) {
+        for (var b = 0; b < BS.game.board.length; b += 1) {
+          var p = BS.game.board[b];
+          if (pdist(p.x, p.y, target.col, target.row) >= snapRadius()) continue;
+          var pc = BS.cellCenter(p.x, p.y);
+          CTX.save();
+          CTX.globalAlpha = 0.55 + 0.45 * Math.sin(time * 8);
+          CTX.beginPath();
+          CTX.moveTo(target.x, target.y);
+          CTX.lineTo(pc.x, pc.y);
+          CTX.strokeStyle = rgba(T().warn, 0.9);
+          CTX.lineWidth = 1.6;
+          CTX.setLineDash([3, 3]);
+          CTX.stroke();
+          CTX.setLineDash([]);
+          CTX.restore();
+        }
+      }
+    }
+
+    /* beads */
+    var rc = BS.reclaim;
+    for (var k = 0; k < BS.render.board.length; k += 1) {
+      var piece = BS.render.board[k];
+      var pos = BS.cellCenter(piece.x, piece.y);
+      var radius = g.r;
+      var alpha = 1;
+      var notch = piece.owner < 0;
+
+      if (piece.owner < 0) {
+        /* neutral solo obstacle */
+        drawBead(pos.x, pos.y, radius * 0.86, -1, { notch: true });
+        continue;
+      }
+
+      if (rc) {
+        var idx = rc.list.indexOf(piece);
+        if (idx >= 0) {
+          var d = rc.chainDelay;
+          var flyMs = cfgGet('anim.reclaimFlyMs', 340) / 1000;
+          var local = clamp((rc.t - idx * d) / flyMs, 0, 1);
+          if (local <= 0) {
+            /* still held: pulse in place as the field grabs it */
+            var pulse = 1 + 0.18 * Math.sin(time * 18 + idx);
+            drawBead(pos.x, pos.y, radius * pulse, piece.owner, { glow: T().warn });
+            continue;
+          }
+          var anchor = BS.handAnchor(rc.seat);
+          var e = easeInCubic(local);
+          pos = { x: lerp(pos.x, anchor.x, e), y: lerp(pos.y, anchor.y, e - 0.25 * local * local) };
+          radius = g.r * (1 - 0.55 * local);
+          alpha = 1 - 0.75 * local * local;
+        }
+      }
+
+      var ap = BS.appear[piece.id];
+      var scale = ap === undefined ? 1 : (0.4 + 0.6 * easeOutBack(ap));
+      if (BS.settle[piece.id] !== undefined && BS.appear[piece.id] === 1) {
+        var st = BS.settle[piece.id];
+        scale = 1 + 0.12 * Math.sin(st * Math.PI) * (1 - st);
+      }
+      drawBead(pos.x, pos.y, radius * scale, piece.owner, { alpha: alpha, notch: notch });
+    }
+
+    /* last-move marker */
+    if (BS.game.lastMove && !BS.reclaim && !BS.game.over) {
+      var lm = BS.game.lastMove;
+      if (lm.type === 'land') {
+        var lc = BS.cellCenter(lm.x, lm.y);
+        CTX.save();
+        CTX.globalAlpha = 0.30 + 0.20 * Math.sin(time * 3);
+        CTX.beginPath();
+        CTX.arc(lc.x, lc.y, g.r * 1.5, 0, TAU);
+        CTX.strokeStyle = seatColor(lm.owner);
+        CTX.lineWidth = 2;
+        CTX.stroke();
+        CTX.restore();
+      }
+    }
+  },
+
+  drawTray: function (time) {
+    var g = BS.geo;
+    var theme = T();
+    var solo = BS.game.mode === 'solo';
+
+    withShadow('rgba(46,28,14,0.14)', 8, 0, 3, function () {
+      fillRR(LAY.contentLeft, g.trayY, g.w, g.trayH, 14, theme.dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.44)');
+    });
+
+    if (solo) {
+      TXT(tr('board.hint.drag'), LAY.contentLeft + g.w / 2, g.trayY + g.trayH / 2, {
+        size: 12.5, color: theme.muted, maxW: g.w - 20
+      });
+      return;
+    }
+
+    /* The tray is always the local player's hand: following whoever is on turn
+       would read as "these are mine to play" while an AI seat is thinking. */
+    var count = BS.render.hands[0];
+    var myTurn = BS.game.turn === 0 && !BS.game.over && !BS.reclaim;
+    var usable = g.w - 16;
+    var shown = Math.max(1, Math.min(count, Math.floor(usable / 15)));
+    var r = Math.min(g.trayH * 0.27, usable / shown / 2.4);
+    var step = shown > 1 ? (usable - r * 2) / (shown - 1) : 0;
+    var dim = myTurn ? 1 : 0.30;
+    for (var i = 0; i < shown; i += 1) {
+      drawBead(LAY.contentLeft + 8 + r + i * step, g.trayY + g.trayH / 2, r, 0, {
+        notch: false, alpha: dim
+      });
+    }
+    if (count <= 0) {
+      TXT(tr('board.hand', { n: 0 }), LAY.contentLeft + g.w / 2, g.trayY + g.trayH / 2, {
+        size: 13, color: theme.muted
+      });
+    } else if (!myTurn && !BS.game.over) {
+      /* Sit the label on its own pill rather than haloing it: a blurred backdrop
+         over dimmed beads reads as smudge at this size. */
+      var label = tr('board.wait-turn', { name: seatName(BS.game.turn) });
+      setFont(13.5, '700');
+      var lw = Math.min(g.w - 20, CTX.measureText(label).width + 28);
+      var lh = 27;
+      var midY = g.trayY + g.trayH / 2;
+      fillRR(LAY.contentLeft + g.w / 2 - lw / 2, midY - lh / 2, lw, lh, lh / 2, theme.cardBg);
+      strokeRR(LAY.contentLeft + g.w / 2 - lw / 2, midY - lh / 2, lw, lh, lh / 2, rgba(theme.boardEdge, 0.18), 1);
+      TXT(label, LAY.contentLeft + g.w / 2, midY, { size: 13.5, color: theme.text, maxW: lw - 16 });
+    }
+  },
+
+  drawActions: function () {
+    var g = BS.geo;
+    var w = 92;
+    var gap = 10;
+    var total = w * 2 + gap;
+    var x0 = (LAY.contentLeft + LAY.contentRight) / 2 - total / 2;
+    drawChip(x0, g.actY, w, 30, tr('board.menu'), isPressed('menu'), { size: 13 });
+    HIT('menu', x0, g.actY, w, 30);
+    drawChip(x0 + w + gap, g.actY, w, 30, tr('board.restart'), isPressed('restart'), { size: 13 });
+    HIT('restart', x0 + w + gap, g.actY, w, 30);
+  },
+
+  drawBanner: function () {
+    var b = BS.banner;
+    var p = clamp(b.t / 0.22, 0, 1);
+    var out = clamp((cfgGet('anim.turnBannerMs', 820) / 1000 - b.t) / 0.25, 0, 1);
+    var a = Math.min(p, out);
+    var y = BS.geo.y + 6;
+    CTX.save();
+    CTX.globalAlpha = a * 0.96;
+    CTX.translate(0, (1 - easeOutCubic(p)) * -14);
+    var w = Math.min(LAY.contentRight - LAY.contentLeft, 220);
+    var x = (LAY.contentLeft + LAY.contentRight) / 2 - w / 2;
+    withShadow('rgba(20,10,0,0.28)', 14, 0, 5, function () {
+      fillRR(x, y, w, 34, 17, rgba(T().boardEdge, 0.90));
+    });
+    TXT(b.text, x + w / 2, y + 17.5, { size: 15, color: '#FFF6E6', maxW: w - 16 });
+    CTX.restore();
+  },
+
+  drawMenu: function () {
+    var w = 260;
+    var h = 190;
+    var card = drawModalCard(w, h, BS.menuT);
+    var theme = T();
+    TXT(tr('board.paused'), card.x + w / 2, card.y + 28, { size: 19, color: theme.text });
+    TXT(tr('board.quit.hint'), card.x + w / 2, card.y + 50, { size: 11.5, color: theme.muted });
+    var bw = w - 40;
+    drawButton(card.x + 20, card.y + 68, bw, 42, tr('board.resume'), isPressed('resume'), { size: 16 });
+    HIT('resume', card.x + 20, card.y + 68, bw, 42);
+    drawChip(card.x + 20, card.y + 118, bw, 36, tr('board.restart'), isPressed('restart'), { size: 14 });
+    HIT('restart', card.x + 20, card.y + 118, bw, 36);
+    drawChip(card.x + 20, card.y + 158, bw, 24, tr('board.quit'), isPressed('quit'), { size: 13 });
+    HIT('quit', card.x + 20, card.y + 158, bw, 24);
+  },
+
+  /* ── input ────────────────────────────────────────────────────────────── */
+  down: function (x, y) {
+    var id = pickHit(x, y);
+    if (BS.menuOpen) {
+      if (id === 'resume') { BS.menuOpen = false; BS.menuT = 0; return; }
+      if (id === 'restart') { BS.menuOpen = false; APP.restartGame(); return; }
+      if (id === 'quit') { BS.menuOpen = false; APP.go('home'); return; }
+      return;
+    }
+    if (id === 'menu') { BS.menuOpen = true; BS.menuT = 0; return; }
+    if (id === 'restart') { APP.restartGame(); return; }
+    if (id) return;
+
+    if (BS.reclaim || BS.over || BS.game.over) return;
+    var seat = BS.game.turn;
+    if (seat !== 0 || isAISeat(BS.game, seat)) return;
+    /* Drag may start on the board or on the hand tray. */
+    var inBoard = x >= BS.geo.x && x <= BS.geo.x + BS.geo.w && y >= BS.geo.y && y <= BS.geo.y + BS.geo.h;
+    var inTray = y >= BS.geo.trayY && y <= BS.geo.trayY + BS.geo.trayH;
+    if (!inBoard && !inTray) return;
+    BS.drag = { active: true, x: x, y: y, cell: BS.cellAt(x, y) };
+  },
+
+  move: function (x, y) {
+    if (!BS.drag || !BS.drag.active) return;
+    BS.drag.x = x;
+    BS.drag.y = y;
+    BS.drag.cell = BS.cellAt(x, y);
+  },
+
+  up: function (x, y) {
+    if (!BS.drag || !BS.drag.active) return;
+    var cell = BS.cellAt(x, y);
+    BS.drag = null;
+    if (!cell) return;
+    if (occupied(BS.game.board, cell.col, cell.row)) { SFX.bump(); return; }
+    BS.commitMove(cell.col, cell.row);
+  }
+};
+
+/* One chip per seat across the band. */
+function bandLayout(game, L, W, bandY, bandH) {
+  var n = game.playerCount;
+  var gap = 6;
+  var w = (W - gap * (n - 1)) / n;
+  var out = [];
+  for (var i = 0; i < n; i += 1) {
+    out.push({ seat: i, x: L + i * (w + gap), y: bandY, w: w, h: bandH });
+  }
+  return out;
+}
+
+
+/* ===== 13-scene-result.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §13  SCENE · RESULT — outcome, standings, stats, and the restart entry point
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var RS = {
+  game: null,
+  settings: null,
+  t: 0,
+  best: false,
+  bestScore: 0,
+
+  enter: function (opts) {
+    RS.game = opts.game;
+    RS.settings = opts.settings;
+    RS.t = 0;
+    RS.best = false;
+    var g = RS.game;
+    if (g.mode === 'solo') {
+      var st = readStats();
+      RS.bestScore = st.soloBest;
+      var perfect = g.endReason === 'full' || g.endReason === 'nomove';
+      if (g.score > st.soloBest) {
+        st.soloBest = g.score;
+        RS.best = true;
+      }
+      st.soloGames = (st.soloGames || 0) + 1;
+      writeStats(st);
+      RS.bestScore = st.soloBest;
+      SFX[perfect ? 'win' : 'lose'](perfect);
+    } else {
+      var s = readStats();
+      var won = g.winner === 0;
+      s.duelGames += 1;
+      if (won) {
+        s.duelWins += 1;
+        s.streak += 1;
+        if (s.streak > s.bestStreak) s.bestStreak = s.streak;
+      } else {
+        s.streak = 0;
+      }
+      writeStats(s);
+      SFX[won ? 'win' : 'lose'](false);
+    }
+  },
+
+  exit: function () {},
+
+  headline: function () {
+    var g = RS.game;
+    if (g.mode === 'solo') {
+      if (g.endReason === 'full' || g.endReason === 'nomove') return tr('result.solo-perfect');
+      return tr('result.solo-end');
+    }
+    return g.winner === 0 ? tr('result.win') : tr('result.lose');
+  },
+
+  reasonText: function () {
+    var g = RS.game;
+    if (g.mode === 'solo') return tr('result.reason.' + (g.endReason === 'foul' ? 'foul' : g.endReason));
+    if (g.endReason === 'empty') return tr('result.reason.empty');
+    if (g.endReason === 'stall') return tr('result.reason.stall');
+    if (g.endReason === 'full') return tr('result.reason.full');
+    return '';
+  },
+
+  draw: function (dt, time) {
+    RS.t += dt;
+    var g = RS.game;
+    var solo = g.mode === 'solo';
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var W = R - L;
+    var cx = (L + R) / 2;
+    var pop = clamp(RS.t / 0.3, 0, 1);
+
+    /* ── ribbon ── */
+    var ribY = LAY.contentTop + 6;
+    var ribH = 62;
+    CTX.save();
+    CTX.translate(cx, ribY + ribH / 2);
+    var s = 0.9 + 0.1 * easeOutBack(pop);
+    CTX.scale(s, s);
+    CTX.translate(-cx, -(ribY + ribH / 2));
+    withShadow('rgba(40,22,8,0.32)', 16, 0, 6, function () {
+      fillRR(L - 2, ribY, W + 4, ribH, 16, vGrad(L, ribY, W, ribH, theme.bannerGrad[0], theme.bannerGrad[1]));
+    });
+    roundRectPath(L + 1, ribY + 1, W - 2, ribH * 0.44, 14);
+    CTX.strokeStyle = 'rgba(255,255,255,0.34)';
+    CTX.lineWidth = 1.4;
+    CTX.stroke();
+    TXT(RS.headline(), cx, ribY + ribH / 2 - 4, {
+      size: 27, color: '#FFFFFF', maxW: W - 28, letterSpacing: '2px',
+      shadow: { color: 'rgba(0,0,0,0.28)', blur: 4, oy: 2 }
+    });
+    TXT(RS.reasonText(), cx, ribY + ribH / 2 + 18, {
+      size: 11.5, color: 'rgba(255,255,255,0.92)', maxW: W - 28
+    });
+    CTX.restore();
+
+    var y = ribY + ribH + 14;
+
+    if (solo) {
+      y = RS.drawSoloPanel(y, W, L, cx);
+    } else {
+      y = RS.drawStandings(y, W, L, cx);
+    }
+
+    /* ── stats ── */
+    var st = g.stats[0];
+    var rows = [];
+    if (solo) {
+      /* The headline already shows the score, and in solo the score IS the safe-drop
+         count — so these rows carry the things the headline does not. */
+      rows.push([tr('result.stat.fouls'), String(st.snaps)]);
+      rows.push([tr('result.stat.onboard'), String(Math.max(0, g.board.length - g.obstacleCount))]);
+      rows.push([tr('result.stat.safeleft'), String(countSafeCells(g))]);
+    } else {
+      rows.push([tr('result.stat.placed'), String(st.placed)]);
+      rows.push([tr('result.stat.fouls'), String(st.snaps)]);
+      rows.push([tr('result.stat.lost'), String(st.pulledBack)]);
+    }
+    var ph = 22 + rows.length * 22 + 8;
+    drawCard(L, y, W, ph, 16, { shadowBlur: 8 });
+    for (var i = 0; i < rows.length; i += 1) {
+      var ry = y + 24 + i * 22;
+      TXT(rows[i][0], L + 14, ry, { size: 13, align: 'left', color: theme.muted, maxW: W * 0.6 });
+      TXT(rows[i][1], R - 14, ry, { size: 15, align: 'right', color: theme.text });
+    }
+    y += ph + 12;
+
+    /* ── actions ── */
+    var btnH = 50;
+    var againY = Math.min(y, LAY.contentBottom - btnH - 34 - 12);
+    drawButton(L, againY, W, btnH, tr('result.again'), isPressed('again'), { size: 20, letterSpacing: '2px' });
+    HIT('again', L, againY, W, btnH);
+    drawChip(L, againY + btnH + 10, W, 30, tr('result.home'), isPressed('home'), { size: 14 });
+    HIT('home', L, againY + btnH + 10, W, 30);
+  },
+
+  /* Standings list for 2-4 seats. */
+  drawStandings: function (y, W, L, cx) {
+    var g = RS.game;
+    var theme = T();
+    var h = 26 + g.playerCount * 34 + 6;
+    drawCard(L, y, W, h, 16, { shadowBlur: 8 });
+    TXT(tr('result.rank'), L + 14, y + 18, { size: 12, align: 'left', color: theme.muted });
+    var ranking = g.ranking && g.ranking.length ? g.ranking : computeRanking(g);
+    for (var i = 0; i < ranking.length; i += 1) {
+      var seat = ranking[i];
+      var rowY = y + 34 + i * 34;
+      var rank = playerRank(g, seat);
+      var isMe = seat === 0;
+      /* Ties share a rank, so "won" is rank 1 — not seat === winner, which would
+         mark only the first of two tied leaders. */
+      var isWinner = rank === 1;
+      if (isMe) fillRR(L + 8, rowY, W - 16, 30, 10, rgba(theme.accent, 0.16));
+      else if (isWinner) fillRR(L + 8, rowY, W - 16, 30, 10, rgba(seatColor(seat), 0.10));
+
+      /* seat-coloured spine so the row ties back to the bead colour on the board */
+      fillRR(L + 12, rowY + 4, 4, 22, 2, seatColor(seat));
+
+      TXT(String(rank), L + 26, rowY + 15, { size: 14, color: theme.text });
+      drawBead(L + 52, rowY + 15, 9, seat, { shadow: false });
+      var name = seat === 0
+        ? tr('board.you', { name: seatName(seat) })
+        : (isAISeat(g, seat) ? tr('board.ai', { name: seatName(seat) }) : seatName(seat));
+      TXT(name, L + 68, rowY + 15, { size: 13, align: 'left', color: theme.text, maxW: W - 156 });
+      TXT(tr('result.left', { n: g.hands[seat] }), L + W - 14, rowY + 15, {
+        size: 13, align: 'right', color: theme.muted
+      });
+      if (isWinner) drawSpark(L + W - 78, rowY + 15, 8, theme.accent, 0.95);
+    }
+    return y + h + 12;
+  },
+
+  /* Solo: one big score with the personal best underneath. */
+  drawSoloPanel: function (y, W, L, cx) {
+    var g = RS.game;
+    var theme = T();
+    var h = 104;
+    drawCard(L, y, W, h, 16, { shadowBlur: 8 });
+    TXT(tr('result.stat.score'), cx, y + 20, { size: 12, color: theme.muted });
+    TXT(String(g.score), cx, y + 54, {
+      size: 46, grad: theme.titleGrad, maxW: W - 40,
+      outline: { color: theme.titleEdge, width: 5 }
+    });
+    var bestLine = RS.best ? tr('result.newbest') : tr('result.best', { n: RS.bestScore });
+    TXT(bestLine, cx, y + 86, {
+      size: 12.5, color: RS.best ? theme.accent : theme.muted, maxW: W - 30
+    });
+    return y + h + 12;
+  },
+
+  actions: {
+    'again': function () { APP.restartGame(); },
+    'home': function () { APP.go('home'); }
+  }
+};
+
+
+/* ===== 14-scene-legal.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §14  SCENE · RULES / ABOUT + the first-launch agreement
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var RULES = {
+  draw: function (dt, time) {
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var W = R - L;
+    var y = drawHeader(tr('rules.title'), 'back', time) + 26;
+
+    /* Live diagram. Everything is drawn INSIDE the field ring, because that is
+       exactly the rule: a bead dropped in the field is what triggers the snap. */
+    var dh = 96;
+    drawCard(L, y, W, dh, 16, { shadowBlur: 8 });
+    var cx = L + W / 2;
+    var cy = y + dh / 2;
+    var r = 11.5;
+    var step = 26;
+    var anchorX = cx - step * 0.35;
+    var anchorY = cy + 6;
+    var ringR = snapRadius() * step;
+
+    CTX.save();
+    var gg = CTX.createRadialGradient(anchorX, anchorY, 4, anchorX, anchorY, ringR);
+    gg.addColorStop(0, rgba(theme.warn, 0.04));
+    gg.addColorStop(1, rgba(theme.warn, 0.30));
+    CTX.beginPath();
+    CTX.arc(anchorX, anchorY, ringR, 0, TAU);
+    CTX.fillStyle = gg;
+    CTX.fill();
+    CTX.beginPath();
+    CTX.arc(anchorX, anchorY, ringR, 0, TAU);
+    CTX.setLineDash([4, 4]);
+    CTX.lineDashOffset = -time * 10;
+    CTX.strokeStyle = rgba(theme.warn, 0.9);
+    CTX.lineWidth = 1.8;
+    CTX.stroke();
+    CTX.setLineDash([]);
+    CTX.restore();
+
+    /* the settled bead that owns the field, and two neighbours it has caught */
+    var nb1 = { x: anchorX + step * 0.92, y: anchorY - step * 0.38 };
+    var nb2 = { x: anchorX - step * 0.30, y: anchorY + step * 0.86 };
+    drawBead(nb1.x, nb1.y, r, 1, { notch: true });
+    drawBead(nb2.x, nb2.y, r, 2, { notch: true });
+    drawBead(anchorX, anchorY, r, 0, { notch: false });
+
+    /* the bead arriving into the field, mid-pull */
+    var pulse = 1 + 0.08 * Math.sin(time * 5);
+    var inX = anchorX + step * 1.35;
+    var inY = anchorY + step * 0.62;
+    drawBead(inX, inY, r * pulse, 3, { glow: theme.warn, notch: false });
+    CTX.save();
+    CTX.globalAlpha = 0.55 + 0.35 * Math.sin(time * 5);
+    CTX.beginPath();
+    CTX.moveTo(inX - r * 0.9, inY - r * 0.5);
+    CTX.lineTo(nb1.x + r * 0.8, nb1.y + r * 0.5);
+    CTX.strokeStyle = rgba(theme.warn, 0.95);
+    CTX.lineWidth = 1.8;
+    CTX.setLineDash([3, 3]);
+    CTX.stroke();
+    CTX.restore();
+    drawSpark((inX + nb1.x) / 2, (inY + nb1.y) / 2, 7, theme.warn, 0.9);
+
+    y += dh + 14;
+
+    var sections = [
+      [tr('rules.goal.h'), [tr('rules.goal.duel'), tr('rules.goal.solo')]],
+      [tr('rules.snap.h'), [tr('rules.snap.b')]],
+      [tr('rules.safe.h'), [tr('rules.safe.b')]],
+      [tr('rules.end.h'), [tr('rules.end.b')]]
+    ];
+    var bodySize = 11.5;
+    var maxW = W - 28;
+    var avail = LAY.contentBottom - 62 - y;
+    var total = 0;
+    for (var i = 0; i < sections.length; i += 1) {
+      var bodyH = 0;
+      for (var pi = 0; pi < sections[i][1].length; pi += 1) {
+        bodyH += paragraphHeight(sections[i][1][pi], maxW, bodySize, '500', 1.45);
+      }
+      total += 22 + bodyH + 8;
+    }
+    total += paragraphHeight(tr('rules.tip'), maxW, 11, '700', 1.45) + 16;
+    /* Shrink rather than clip if the copy runs long in either language. */
+    var scale = total > avail ? Math.max(0.72, avail / total) : 1;
+
+    /* +22 leaves real breathing room under the last line: the descenders of a
+       final glyph otherwise sit right on the card edge. */
+    var cardH = total * scale + 22;
+    drawCard(L, y, W, cardH, 16, { shadowBlur: 8 });
+    var cursor = y + 8;
+    for (var s = 0; s < sections.length; s += 1) {
+      drawSpark(L + 15, cursor + 11, 5, theme.accent, 0.95);
+      TXT(sections[s][0], L + 26, cursor + 11, { size: 13 * scale, align: 'left', color: theme.text, maxW: maxW });
+      cursor += 22 * scale;
+      for (var pj = 0; pj < sections[s][1].length; pj += 1) {
+        cursor += paragraph(sections[s][1][pj], L + 14, cursor, maxW, {
+          size: bodySize * scale, color: theme.muted, lineHeight: 1.45
+        });
+      }
+      cursor += 8 * scale;
+    }
+    cursor += paragraph(tr('rules.tip'), L + 14, cursor, maxW, {
+      size: 11 * scale, weight: '700', color: theme.accent, lineHeight: 1.45
+    });
+    y += cardH + 12;
+
+    drawButton(L, Math.min(y, LAY.contentBottom - 46), W, 46, tr('rules.back'), isPressed('back'), { size: 17 });
+    HIT('back', L, Math.min(y, LAY.contentBottom - 46), W, 46);
+  },
+  actions: { 'back': function () { APP.go('home'); } }
+};
+
+var ABOUT = {
+  draw: function (dt, time) {
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var W = R - L;
+    var cx = (L + R) / 2;
+    var y = drawHeader(tr('about.title'), 'back', time) + 24;
+
+    /* app icon + store cover, both loaded through window.lib.getAsset */
+    var ih = 66;
+    var icon = assetImage('icon');
+    var poster = assetImage('poster');
+    var pw = poster ? ih * (9 / 16) : 0;
+    var totalW = ih + (poster ? pw + 10 : 0);
+    var ix = cx - totalW / 2;
+    CTX.save();
+    roundRectPath(ix, y, ih, ih, 15);
+    CTX.clip();
+    if (icon) {
+      CTX.drawImage(icon, ix, y, ih, ih);
+    } else {
+      /* procedural stand-in keeps the layout identical when the asset is absent */
+      CTX.fillStyle = vGrad(ix, y, ih, ih, theme.bg[0], theme.bg[1]);
+      CTX.fillRect(ix, y, ih, ih);
+      drawMark(ix + ih / 2, y + ih / 2, ih * 0.82, time);
+    }
+    CTX.restore();
+    strokeRR(ix, y, ih, ih, 15, rgba(theme.boardEdge, 0.5), 1.6);
+    if (poster) {
+      var px = ix + ih + 10;
+      CTX.save();
+      roundRectPath(px, y, pw, ih, 10);
+      CTX.clip();
+      CTX.drawImage(poster, px, y, pw, ih);
+      CTX.restore();
+      strokeRR(px, y, pw, ih, 10, rgba(theme.boardEdge, 0.5), 1.4);
+    }
+
+    var tx = ix + totalW + 12;
+    TXT(tr('game.title'), tx, y + 24, { size: 21, align: 'left', color: theme.text, maxW: R - tx });
+    TXT(tr('game.subtitle'), tx, y + 44, { size: 12, align: 'left', color: theme.muted, maxW: R - tx });
+    TXT(tr('about.version', { v: APP_VERSION }), tx, y + 60, {
+      size: 11, align: 'left', color: theme.muted, maxW: R - tx
+    });
+    y += ih + 16;
+
+    var blocks = [
+      [tr('about.original.h'), tr('about.original.b')],
+      [tr('about.offline.h'), tr('about.offline.b')],
+      [tr('about.save.h'), tr('about.save.b')]
+    ];
+    var bodySize = 11.5;
+    var maxW = W - 28;
+    var avail = LAY.contentBottom - 68 - y;
+    var total = 0;
+    for (var i = 0; i < blocks.length; i += 1) {
+      total += 22 + paragraphHeight(blocks[i][1], maxW, bodySize, '500', 1.45) + 8;
+    }
+    var scale = total > avail ? Math.max(0.70, avail / total) : 1;
+    /* +22 leaves real breathing room under the last line: the descenders of a
+       final glyph otherwise sit right on the card edge. */
+    var cardH = total * scale + 22;
+    drawCard(L, y, W, cardH, 16, { shadowBlur: 8 });
+    var cursor = y + 8;
+    for (var b = 0; b < blocks.length; b += 1) {
+      drawSpark(L + 15, cursor + 11, 5, theme.accent, 0.95);
+      TXT(blocks[b][0], L + 26, cursor + 11, { size: 13 * scale, align: 'left', color: theme.text, maxW: maxW });
+      cursor += 22 * scale;
+      cursor += paragraph(blocks[b][1], L + 14, cursor, maxW, {
+        size: bodySize * scale, color: theme.muted, lineHeight: 1.45
+      });
+      cursor += 8 * scale;
+    }
+    y += cardH + 12;
+
+    var wipeY = Math.min(y, LAY.contentBottom - 46 - 40);
+    drawChip(L, wipeY, W, 34, tr('about.wipe'), isPressed('wipe'), { size: 13 });
+    HIT('wipe', L, wipeY, W, 34);
+    drawButton(L, wipeY + 40, W, 46, tr('about.back'), isPressed('back'), { size: 17 });
+    HIT('back', L, wipeY + 40, W, 46);
+  },
+  actions: {
+    'back': function () { APP.go('home'); },
+    'wipe': function () {
+      STORE.set('stats', null);
+      STORE.set('lang', '');
+      STORE.set('theme', '');
+      _lang = null;
+      _themeId = null;
+      resetDeco();
+      toast(tr('about.wiped'));
+    }
+  }
+};
+
+/* ── first-launch agreement (compliance: modal, explicit consent) ────────── */
+function drawAgreement(dt, time) {
+  var theme = T();
+  var W = Math.min(312, LAY.contentRight - LAY.contentLeft);
+  var body = [tr('agree.body1'), tr('agree.body2'), tr('agree.body3'), tr('agree.body4')];
+  var maxW = W - 32;
+  var size = 11.5;
+  var total = 0;
+  var i;
+  for (i = 0; i < body.length; i += 1) total += paragraphHeight(body[i], maxW, size, '500', 1.5) + 8;
+  var H = 74 + total + 62;
+  var card = drawModalCard(W, H, APP.agreeT);
+  var x = card.x;
+  var y = card.y;
+
+  TXT(tr('agree.title'), x + W / 2, y + 28, { size: 19, color: theme.text, maxW: W - 30 });
+  var rule = CTX.createLinearGradient(x + 24, 0, x + W - 24, 0);
+  rule.addColorStop(0, rgba(theme.accent, 0));
+  rule.addColorStop(0.5, rgba(theme.accent, 0.85));
+  rule.addColorStop(1, rgba(theme.accent, 0));
+  CTX.fillStyle = rule;
+  CTX.fillRect(x + 24, y + 44, W - 48, 1.6);
+
+  var cursor = y + 54;
+  for (i = 0; i < body.length; i += 1) {
+    cursor += paragraph(body[i], x + 16, cursor, maxW, { size: size, color: theme.muted, lineHeight: 1.5 });
+    cursor += 8;
+  }
+  var by = y + H - 54;
+  drawButton(x + 20, by, W - 40, 44, tr('agree.ok'), isPressed('agree'), { size: 18, letterSpacing: '3px' });
+  HIT('agree', x + 20, by, W - 40, 44);
+}
+
+
+/* ===== 15-app.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §15  APP — scenes, input routing, main loop, saved progress, boot
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var APP_VERSION = "1.0.0";
+
+/* ── saved progress (only ever a handful of numbers) ─────────────────────── */
+function readStats() {
+  var s = STORE.get('stats', null);
+  var out = {
+    duelGames: 0, duelWins: 0, streak: 0, bestStreak: 0, soloBest: 0, soloGames: 0
+  };
+  if (isObj(s)) {
+    for (var k in out) {
+      if (Object.prototype.hasOwnProperty.call(s, k) && typeof s[k] === 'number' && isFinite(s[k])) {
+        out[k] = s[k];
+      }
+    }
+  }
+  return out;
+}
+function writeStats(s) { return STORE.set('stats', s); }
+
+/* ── app ────────────────────────────────────────────────────────────────── */
+var SCENES = { home: HOME, board: BS, result: RS, rules: RULES, about: ABOUT };
+
+var APP = {
+  scene: 'home',
+  settings: { mode: 'ai', players: 2, difficulty: 'normal' },
+  current: null,
+  agree: true,
+  agreeT: 0,
+  time: 0,
+  resultDelay: -1,
+  ready: false,
+
+  init: function () {
+    var agreed = STORE.get('agreed', false);
+    APP.agree = agreed !== true;
+    APP.agreeT = 0;
+    APP.scene = 'home';
+    APP.applyTitle();
+  },
+
+  applyTitle: function () {
+    try { document.title = tr('game.title'); } catch (e) { /* no document */ }
+  },
+
+  go: function (name, opts) {
+    var cur = SCENES[APP.scene];
+    if (cur && cur.exit) cur.exit();
+    APP.scene = name;
+    APP.resultDelay = -1;
+    if (name === 'board' && opts) {
+      BS.enter(opts);
+    } else if (name === 'result' && opts) {
+      RS.enter(opts);
+    }
+  },
+
+  /** Build a brand-new game. Every restart path goes through here, so no board,
+   *  hand, counter, animation or seed can survive into the next round. */
+  newGame: function () {
+    var solo = APP.settings.mode === 'solo';
+    var n = solo ? 1 : APP.settings.players;
+    var types = [];
+    for (var i = 0; i < n; i += 1) types.push(i === 0 ? 'human' : 'ai');
+    var seed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+    resetDeco();
+    return {
+      game: createGame(n, solo ? 'solo' : 'classic', seed, types),
+      settings: { mode: APP.settings.mode, players: n, difficulty: APP.settings.difficulty }
+    };
+  },
+
+  startGame: function () {
+    resetDeco();
+    var opts = APP.newGame();
+    APP.current = opts;
+    APP.go('board', opts);
+  },
+
+  restartGame: function () {
+    /* A restart is a fresh game with a fresh seed, not a replay of the old one. */
+    var cur = SCENES[APP.scene];
+    if (cur && cur.exit) cur.exit();
+    resetDeco();
+    var opts = APP.newGame();
+    APP.current = opts;
+    APP.go('board', opts);
+  },
+
+  update: function (dt) {
+    APP.time += dt;
+    if (APP.agree) APP.agreeT += dt;
+    var s = SCENES[APP.scene];
+    if (s && s.update) s.update(dt);
+
+    /* Board play is finished → show the result after the last animation lands.
+       The final game object is read from the board scene, never from APP.current:
+       every move replaces that object, so a cached reference would be stale. */
+    if (APP.scene === 'board' && BS.over) {
+      if (APP.resultDelay < 0) APP.resultDelay = 0.55;
+      else {
+        APP.resultDelay -= dt;
+        if (APP.resultDelay <= 0) {
+          APP.go('result', { game: BS.game, settings: BS.settings });
+        }
+      }
+    }
+  },
+
+  draw: function (dt) {
+    var s = SCENES[APP.scene];
+    if (s && s.draw) s.draw(dt, APP.time);
+    drawToast(dt);
+    if (APP.agree) drawAgreement(dt, APP.time);
+  },
+
+  /* ── input ────────────────────────────────────────────────────────────── */
+  down: function (x, y) {
+    SFX.unlock();
+    PRESS.x = x;
+    PRESS.y = y;
+    PRESS.moved = false;
+    PRESS.id = pickHit(x, y);
+    /* The agreement is modal: while it is open nothing else may receive input. */
+    if (APP.agree) return;
+    var s = SCENES[APP.scene];
+    if (s && s.down) s.down(x, y);
+  },
+
+  move: function (x, y) {
+    if (Math.abs(x - PRESS.x) > 6 || Math.abs(y - PRESS.y) > 6) PRESS.moved = true;
+    var s = SCENES[APP.scene];
+    if (s && s.move) s.move(x, y);
+  },
+
+  up: function (x, y) {
+    if (APP.agree) {
+      if (pickHit(x, y) === 'agree' && !PRESS.moved) {
+        APP.agree = false;
+        STORE.set('agreed', true);
+      }
+      PRESS.id = null;
+      PRESS.moved = false;
+      return;
+    }
+    var s = SCENES[APP.scene];
+    if (s && s.up) {
+      s.up(x, y);
+    } else {
+      var id = pickHit(x, y);
+      if (id && id === PRESS.id && !PRESS.moved && s && s.actions && s.actions[id]) {
+        s.actions[id]();
+      } else if (id && handleHomePick(id)) {
+        /* value-carrying chip in the home screen */
+      }
+    }
+    PRESS.id = null;
+    PRESS.moved = false;
+  }
+};
+
+/* ── main loop ──────────────────────────────────────────────────────────── */
+var _last = 0;
+
+function frame(now) {
+  var raw = _last ? now - _last : 1000 / 60;
+  var dt = _last ? clamp(raw / 1000, 0, 0.05) : 1 / 60;
+  _last = now;
+  /* Feed the real elapsed time to the quality policy (dt above is clamped for
+     simulation stability, which would hide a slow device from the sampler). */
+  if (APP.ready) sampleFrame(raw);
+
+  CTX.setTransform(VIEW.dpr, 0, 0, VIEW.dpr, 0, 0);
+  drawBackground(T(), APP.time);
+
+  resetHits();
+  CTX.save();
+  CTX.translate(LAY.stageX, LAY.stageY);
+  CTX.scale(LAY.scale, LAY.scale);
+  APP.update(dt);
+  APP.draw(dt);
+  CTX.restore();
+
+  requestAnimationFrame(frame);
+}
+
+/* ── boot ───────────────────────────────────────────────────────────────── */
+function bindInput() {
+  var canvas = document.getElementById('stage');
+
+  function pt(e) {
+    var rect = canvas.getBoundingClientRect();
+    var src = e;
+    if (e.touches && e.touches.length) src = e.touches[0];
+    else if (e.changedTouches && e.changedTouches.length) src = e.changedTouches[0];
+    return {
+      x: ux((src.clientX || 0) - rect.left),
+      y: uy((src.clientY || 0) - rect.top)
+    };
+  }
+
+  if (window.PointerEvent) {
+    canvas.addEventListener('pointerdown', function (e) { e.preventDefault(); var p = pt(e); APP.down(p.x, p.y); }, { passive: false });
+    canvas.addEventListener('pointermove', function (e) { var p = pt(e); APP.move(p.x, p.y); }, { passive: true });
+    canvas.addEventListener('pointerup', function (e) { var p = pt(e); APP.up(p.x, p.y); }, { passive: true });
+    canvas.addEventListener('pointercancel', function () { APP.up(-1, -1); }, { passive: true });
+  } else {
+    canvas.addEventListener('touchstart', function (e) { e.preventDefault(); var p = pt(e); APP.down(p.x, p.y); }, { passive: false });
+    canvas.addEventListener('touchmove', function (e) { e.preventDefault(); var p = pt(e); APP.move(p.x, p.y); }, { passive: false });
+    canvas.addEventListener('touchend', function (e) {
+      e.preventDefault();
+      var t = e.changedTouches && e.changedTouches[0];
+      var rect = canvas.getBoundingClientRect();
+      APP.up(ux((t ? t.clientX : 0) - rect.left), uy((t ? t.clientY : 0) - rect.top));
+    }, { passive: false });
+    canvas.addEventListener('mousedown', function (e) { var p = pt(e); APP.down(p.x, p.y); });
+    canvas.addEventListener('mousemove', function (e) { var p = pt(e); APP.move(p.x, p.y); });
+    canvas.addEventListener('mouseup', function (e) { var p = pt(e); APP.up(p.x, p.y); });
+  }
+  /* Block the OS-level long-press menu and double-tap zoom inside the play area. */
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+}
+
+function boot() {
+  refreshConfigFromSidecar();
+  relayout();
+  APP.init();
+  loadAssets();
+  bindInput();
+
+  window.addEventListener('resize', function () { relayout(); resetDeco(); });
+  window.addEventListener('orientationchange', function () {
+    setTimeout(function () { relayout(); resetDeco(); }, 120);
+  });
+
+  requestAnimationFrame(frame);
+  APP.ready = true;
+}
+
+/* Debug / automation handle. Read-only surface used by the test harness. */
+window.__POLAR__ = {
+  APP: APP, BS: BS, RS: RS, HOME: HOME,
+  config: CONFIG,
+  assets: ASSETS,
+  layout: LAY,
+  quality: QUALITY,
+  hits: HITS,          /* live hit regions, rebuilt every frame (design units) */
+  version: APP_VERSION,
+  api: {
+    createGame: createGame,
+    placePiece: placePiece,
+    chooseMove: chooseMove,
+    countSafeCells: countSafeCells,
+    hasSafeCell: hasSafeCell,
+    isBoardFull: isBoardFull,
+    stateSig: stateSig,
+    simulateMagnet: simulateMagnet,
+    computeRanking: computeRanking,
+    playerRank: playerRank,
+    snapRadius: snapRadius,
+    isMineCell: isMineCell,
+    readStats: readStats,
+    writeStats: writeStats,
+    getLang: getLang,
+    setLang: setLang,
+    tr: tr,
+    dict: DICT,
+    langs: LANGS,
+    fallbackLang: FALLBACK_LANG,
+    getThemeId: getThemeId,
+    setThemeId: setThemeId,
+    effectivePixelRatio: effectivePixelRatio,
+    medianOf: medianOf,
+    shouldDowngrade: shouldDowngrade,
+    applyQualityStep: applyQualityStep,
+    themeIds: themeIds,
+    newGame: function () { return APP.newGame(); }
+  }
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+{
+  "schema": "asset_map/1.0",
+  "game": "polarclash",
+  "note": "Runtime resolves every entry below through window.lib.getAsset(<id>); if the host API is unavailable the game falls back to the local relative url, then to procedural generation, so the package stays fully playable offline.",
+  "assets": [
+    {
+      "id": "icon",
+      "url": "icon.png",
+      "type": "image",
+      "subtype": "icon",
+      "aspect_ratio": "1:1",
+      "prompt": "App icon 512x512: two glossy magnet beads (coral red and cyan) leaning toward each other with a bright amber spark arcing between them, on a warm beige cork board, soft top-left key light, thick rounded toy-plastic finish, no text, centered composition"
+    },
+    {
+      "id": "poster",
+      "url": "cover/poster.jpg",
+      "type": "image",
+      "subtype": "poster",
+      "aspect_ratio": "9:16",
+      "prompt": "Vertical store cover 9:16: warm beige cork board filling the frame with a subtle grid, four glossy magnet beads (coral, cyan, green, amber) clustered mid-frame with one bead snapping into the group and a visible amber magnetic arc, deep cocoa title band at the bottom, playful toy-like render, high saturation, no readable text"
+    },
+    {
+      "id": "grain",
+      "url": "assets/grain.png",
+      "type": "image",
+      "subtype": "texture",
+      "aspect_ratio": "1:1",
+      "prompt": "Seamless tileable fine paper grain, monochrome neutral grey noise at very low contrast, 128x128, used as a subtle multiply overlay on top of the board to give it a printed cork-board feel"
+    },
+    {
+      "id": "board_skin",
+      "url": "index.html",
+      "type": "image",
+      "subtype": "runtime-generated",
+      "aspect_ratio": "dynamic",
+      "prompt": "Board panel, cell tints, grid lines, edge bevel and hive highlight are drawn procedurally on Canvas 2D per active theme; no bitmap board ships"
+    },
+    {
+      "id": "bead_set",
+      "url": "index.html",
+      "type": "image",
+      "subtype": "runtime-generated",
+      "aspect_ratio": "1:1",
+      "prompt": "Each magnet bead is drawn procedurally: radial-gradient body with specular highlight, drop shadow and a colorblind-safe ownership notch (circle / square / triangle / diamond); four player colors per theme"
+    },
+    {
+      "id": "fx_snap",
+      "url": "index.html",
+      "type": "animation",
+      "subtype": "runtime-generated",
+      "aspect_ratio": "n/a",
+      "prompt": "Snap feedback: magnetic field rings breathe around the drop point, the connected group is pulled in one bead at a time on an 80ms stagger, the group then arcs back to the placer hand tray while shrinking, with screen shake and a shockwave ring"
+    },
+    {
+      "id": "sfx_drop",
+      "url": "index.html",
+      "type": "audio",
+      "subtype": "runtime-generated",
+      "aspect_ratio": "n/a",
+      "prompt": "Short wooden click synthesized with Web Audio (triangle blip plus fast decay noise burst); no audio file ships so the package contains no wav or ogg payload"
+    },
+    {
+      "id": "sfx_snap",
+      "url": "index.html",
+      "type": "audio",
+      "subtype": "runtime-generated",
+      "aspect_ratio": "n/a",
+      "prompt": "Metallic snap synthesized with Web Audio: detuned square pair with a fast pitch drop through a bandpass, layered with a noise transient; one voice per bead in the chain, staggered"
+    },
+    {
+      "id": "sfx_win",
+      "url": "index.html",
+      "type": "audio",
+      "subtype": "runtime-generated",
+      "aspect_ratio": "n/a",
+      "prompt": "Three-note rising arpeggio on a soft sine/triangle pair for a win, mirrored falling minor third pair for a loss, both synthesized with Web Audio"
+    }
+  ]
+}
