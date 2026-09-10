@@ -1653,6 +1653,7 @@ var SFX = (function () {
   var volume = cfgGet('audio.masterVolume', 0.42);
   var engine = null;          /* { osc, osc2, filter, gain } */
   var engineLevel = 0;
+  var lastWall = -1;
 
   function ac() {
     if (!enabled) return null;
@@ -1779,6 +1780,13 @@ var SFX = (function () {
       noise({ dur: 0.12, freq: 900, gain: 0.09 });
     },
     wall: function (strength) {
+      /* A hull pressed against a wall reports a contact every frame. Without a
+         cooldown that is 60 tone+noise voices per second: an audio mess, and a
+         measurable amount of CPU spent building oscillators that nobody hears. */
+      var now = 0;
+      try { now = ctx ? ctx.currentTime : 0; } catch (e) { now = 0; }
+      if (now && now - lastWall < 0.07) return;
+      lastWall = now;
       var g = 0.06 + Math.min(0.16, (strength || 0) / 1400);
       tone({ type: 'sine', freq: 150, to: 92, dur: 0.10, gain: g });
       noise({ dur: 0.05, freq: 1800, gain: g * 0.7 });
