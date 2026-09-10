@@ -1,0 +1,18 @@
+{
+  "id": "twinburn",
+  "name": "Twin Burn",
+  "shortDescription": "Fly two drifting ships on one shared fuel tank and dock both before it runs dry.",
+  "description": "A thrust-and-budget arcade run. Two ships share a single tank of fuel and neither one brakes on its own: hold the screen to pull the nearest ship toward your finger, let momentum carry it, and thread the asteroid field, patrol rocks and gravity wells to bring both hulls home. Eight hand-tuned levels, one tank, two budgets.",
+  "version": "1.0.0",
+  "category": "arcade",
+  "languages": ["en", "zh"],
+  "orientation": "portrait",
+  "entry": "index.html",
+  "icon": "icon.png",
+  "cover": {
+    "poster": "cover/poster.jpg"
+  },
+  "themeColor": "#050B1A",
+  "players": { "min": 1, "max": 2, "offline": true },
+  "features": ["single-player", "offline", "level-campaign", "multi-touch", "multi-theme", "bilingual"]
+}

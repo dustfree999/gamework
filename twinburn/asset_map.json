@@ -1,0 +1,96 @@
+{
+  "_comment": "Resource manifest for Twin Burn (H5 offline package). 'url' is the shipped relative path, or null when the item is generated procedurally at runtime and therefore has no file. Every id below is requested at boot through window.lib.getAsset(assetId), per the platform spec.",
+  "assets": [
+    {
+      "id": "icon",
+      "url": "icon.png",
+      "type": "image",
+      "subtype": "icon",
+      "aspect_ratio": "1:1",
+      "size": "512x512",
+      "prompt": "App icon: two small spacecraft, one coral-red and one cyan, nose to nose above a shared amber fuel bar, on a deep navy starfield; bold flat vector shapes with a thin light rim, no text."
+    },
+    {
+      "id": "poster",
+      "url": "cover/poster.jpg",
+      "type": "image",
+      "subtype": "cover",
+      "aspect_ratio": "9:16",
+      "size": "720x1280",
+      "prompt": "Store cover art, portrait 9:16: two glowing ships crossing a dark blue asteroid field on opposing curved trails, a partly drained horizontal fuel gauge across the top, scattered sparks and a faint purple gravity well below; cinematic but flat-shaded, high contrast, no text."
+    },
+    {
+      "id": "grain",
+      "url": "assets/grain.png",
+      "type": "image",
+      "subtype": "texture",
+      "aspect_ratio": "1:1",
+      "size": "128x128",
+      "prompt": "Seamless tileable monochrome paper-grain noise, very low contrast, used as an 8 percent overlay to stop large dark gradients from banding."
+    },
+    {
+      "id": "ship_set",
+      "url": null,
+      "type": "image",
+      "subtype": "sprite-sheet",
+      "aspect_ratio": "1:1",
+      "prompt": "Two top-down spacecraft sprites with engine nozzles at the rear: hull A a coral-red dart with a ring emblem, hull B a cyan dart with a chevron emblem. Generated procedurally on canvas instead of shipped as a file."
+    },
+    {
+      "id": "rock_set",
+      "url": null,
+      "type": "image",
+      "subtype": "sprite-sheet",
+      "aspect_ratio": "1:1",
+      "prompt": "Irregular faceted asteroid silhouettes in slate blue with a lighter rim, nine to eleven vertices each. Generated procedurally from a seeded noise stream."
+    },
+    {
+      "id": "well_skin",
+      "url": null,
+      "type": "image",
+      "subtype": "effect",
+      "aspect_ratio": "1:1",
+      "prompt": "Violet gravity well: concentric translucent rings over a dark core, with outward-rippling arcs. Drawn procedurally as vector strokes."
+    },
+    {
+      "id": "fx_thrust",
+      "url": null,
+      "type": "animation",
+      "subtype": "particle",
+      "aspect_ratio": "1:1",
+      "prompt": "Short exhaust plume: a two-layer tapered flame, white core inside a ship-coloured outer cone, shedding sparks that fade over roughly 0.4 seconds."
+    },
+    {
+      "id": "fx_crash",
+      "url": null,
+      "type": "animation",
+      "subtype": "particle",
+      "aspect_ratio": "1:1",
+      "prompt": "Hull-break burst: twenty-six shards thrown outward from the impact point with a white flash frame and a brief slow-motion beat."
+    },
+    {
+      "id": "sfx_thrust",
+      "url": null,
+      "type": "audio",
+      "subtype": "sfx-loop",
+      "aspect_ratio": "n/a",
+      "prompt": "Continuous engine drone: sawtooth plus sub-square through a low-pass filter, pitch and brightness rising with thrust. Synthesised live with Web Audio."
+    },
+    {
+      "id": "sfx_dock",
+      "url": null,
+      "type": "audio",
+      "subtype": "sfx",
+      "aspect_ratio": "n/a",
+      "prompt": "Docking confirmation: rising triangle triad, extended to a five-note arpeggio plus a bell overtone when the arrival is slow enough for a precision bonus."
+    },
+    {
+      "id": "sfx_crash",
+      "url": null,
+      "type": "audio",
+      "subtype": "sfx",
+      "aspect_ratio": "n/a",
+      "prompt": "Hull destruction: a falling low sine thump layered with a short high-passed noise burst."
+    }
+  ]
+}

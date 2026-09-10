@@ -1,0 +1,282 @@
+{
+  "_comment": "Twin Burn (H5 offline) operational parameters. Single source of truth: build_h5_twin.py inlines this object into window.gameConfig, so no business value is hardcoded in the game code.",
+  "meta": {
+    "gameId": "twinburn",
+    "title": { "zh": "双星推力", "en": "Twin Burn" },
+    "subtitle": { "zh": "两艘船，一箱油", "en": "Two ships. One tank." }
+  },
+  "viewport": {
+    "designWidth": 402,
+    "designHeight": 619,
+    "guardTopPct": 0.05,
+    "guardBottomPct": 0.05,
+    "cornerClearPx": 26,
+    "minTapSizePx": 40,
+    "_maxPixelRatio": "render at the screen's native density so vector edges and text stay crisp; the adaptive block only kicks in if a device cannot hold the frame budget.",
+    "maxPixelRatio": 3,
+    "_adaptiveQuality": "sampleFrames = ring buffer size; minFrames = frames before judging; slowFrameMs = median budget (22ms ~ 45fps); steps = successive caps to fall back to.",
+    "adaptiveQuality": {
+      "enabled": true,
+      "sampleFrames": 60,
+      "minFrames": 90,
+      "checkEvery": 30,
+      "slowFrameMs": 22,
+      "steps": [2, 1.5]
+    }
+  },
+  "locale": {
+    "supported": ["zh", "en"],
+    "fallback": "en",
+    "_followSystem": "false = always start in English and let the player switch; true = sniff the device locale. English remains the fallback either way.",
+    "followSystem": false
+  },
+  "arena": {
+    "_comment": "The play field is inset from the safe content box; levels store normalised coordinates (0..1) so a notch or a different aspect never pushes geometry outside the safe area.",
+    "hudHeight": 46,
+    "hintHeight": 26,
+    "levelInsetTop": 6,
+    "levelInsetBottom": 6
+  },
+  "physics": {
+    "_comment": "All motion is integrated from these numbers only; the simulation is deterministic so the rules can be unit-tested and replayed.",
+    "_fuelBudget": "Each level fuel value is derived, not guessed: the e2e harness strips the hazards, flies the level with the naive autopilot to measure its irreducible travel cost, and this table is set to 2.3x-3.2x that cost. The gate lives in the harness so a retune that turns the tank into decoration fails the build.",
+    "thrust": 232,
+    "maxSpeed": 196,
+    "dragPerSec": 0.055,
+    "burnPerSec": 2.6,
+    "burnIdlePerSec": 0.05,
+    "thrustRampSec": 0.16,
+    "deadZonePx": 24,
+    "dockRadius": 23,
+    "dockSoftSpeed": 46,
+    "shipRadius": 7,
+    "assignHysteresisPx": 20,
+    "wallRestitution": 0.52,
+    "rockSpinMin": 0.25,
+    "rockSpinMax": 0.9
+  },
+  "scoring": {
+    "levelBase": 400,
+    "fuelBonus": 600,
+    "softDockBonus": 150,
+    "cellBonus": 60,
+    "fuelCellAmount": 10,
+    "star3Ratio": 0.5,
+    "star2Ratio": 0.3
+  },
+  "audio": {
+    "enabled": true,
+    "masterVolume": 0.42,
+    "thrustVolume": 0.17
+  },
+  "anim": {
+    "briefSec": 1.25,
+    "resultDelaySec": 0.7,
+    "crashSlowMoSec": 0.26,
+    "dockFlashSec": 0.32,
+    "lowFuelRatio": 0.25,
+    "trailMax": 22,
+    "particleCap": 240,
+    "exhaustEverySec": 0.055
+  },
+  "storage": {
+    "prefix": "twinburn_",
+    "keys": { "lang": "lang", "theme": "theme", "stats": "stats", "agreed": "agreed", "best": "best" },
+    "maxValueBytes": 262144
+  },
+  "themes": [
+    {
+      "id": "deepfield",
+      "name": { "zh": "深场", "en": "Deep Field" },
+      "dark": true,
+      "bg": ["#050B1A", "#0C1730"],
+      "starA": "#9FD8FF",
+      "starB": "#FFE9B0",
+      "text": "#EAF3FF",
+      "muted": "#8FA6C4",
+      "titleGrad": ["#EAF6FF", "#59C8FF"],
+      "titleEdge": "#08101F",
+      "subtitle": "#7FD6FF",
+      "primary": "#37C6FF",
+      "accent": "#FFB300",
+      "warn": "#FF5C4D",
+      "btnGrad": ["#37C6FF", "#1668C8"],
+      "btnText": "#04121F",
+      "bannerGrad": ["#2E7BD6", "#123C77"],
+      "cardBg": "rgba(11,23,48,0.92)",
+      "hudBg": "rgba(8,18,38,0.72)",
+      "edge": "#2C4570",
+      "rock": "#3A4A63",
+      "rockEdge": "#7A8CA8",
+      "well": "#8A6BFF",
+      "cell": "#4BE38A",
+      "shipA": ["#FF6B4A", "#B93A22", "#FFB59E"],
+      "shipB": ["#2ED3FF", "#0E7FA8", "#9BE9FF"]
+    },
+    {
+      "id": "abyss",
+      "name": { "zh": "深渊", "en": "Abyss" },
+      "dark": true,
+      "bg": ["#03130F", "#082B26"],
+      "starA": "#8FF0D8",
+      "starB": "#D8FFC4",
+      "text": "#E4FFF6",
+      "muted": "#84B0A4",
+      "titleGrad": ["#E6FFF8", "#4EE0B4"],
+      "titleEdge": "#04140F",
+      "subtitle": "#6FE9C6",
+      "primary": "#4EE0B4",
+      "accent": "#FFD166",
+      "warn": "#FF6B6B",
+      "btnGrad": ["#4EE0B4", "#12866A"],
+      "btnText": "#02120D",
+      "bannerGrad": ["#1E9E7C", "#0A4A3A"],
+      "cardBg": "rgba(6,30,26,0.92)",
+      "hudBg": "rgba(4,22,19,0.72)",
+      "edge": "#1E4F45",
+      "rock": "#2E4A46",
+      "rockEdge": "#6E9C92",
+      "well": "#B07CFF",
+      "cell": "#B6FF5C",
+      "shipA": ["#FF8A5C", "#C04E22", "#FFC4A6"],
+      "shipB": ["#4EE0B4", "#12866A", "#AEF6E0"]
+    }
+  ],
+  "defaultTheme": "deepfield",
+  "levels": [
+    {
+      "index": 1,
+      "id": "firstburn",
+      "name": { "zh": "首次点火", "en": "First Burn" },
+      "teach": { "zh": "按住屏幕，把船拉向手指——松手后它不会停。", "en": "Hold the screen and the nearest ship is pulled toward your finger. Let go and it keeps drifting." },
+      "fuel": 36,
+      "ships": [ { "n": [0.12, 0.86], "gate": [0.12, 0.12] }, { "n": [0.88, 0.86], "gate": [0.88, 0.12] } ],
+      "rocks": [],
+      "wells": [],
+      "cells": []
+    },
+    {
+      "index": 2,
+      "id": "driftfield",
+      "name": { "zh": "漂移带", "en": "Drift Field" },
+      "teach": { "zh": "船不会自己停：提前松手，用惯性滑进港口。", "en": "Ships never brake themselves. Release early and coast into the dock." },
+      "fuel": 35,
+      "ships": [ { "n": [0.14, 0.88], "gate": [0.20, 0.10] }, { "n": [0.86, 0.88], "gate": [0.80, 0.10] } ],
+      "rocks": [
+        { "n": [0.50, 0.42], "r": 22 },
+        { "n": [0.30, 0.60], "r": 16 },
+        { "n": [0.70, 0.60], "r": 16 }
+      ],
+      "wells": [],
+      "cells": [ [0.50, 0.78] ]
+    },
+    {
+      "index": 3,
+      "id": "wellspring",
+      "name": { "zh": "井泉", "en": "Well Spring" },
+      "teach": { "zh": "引力井会替你加速，也会把你拖进去。", "en": "A gravity well will slingshot you — or swallow you. It pulls hardest at its core." },
+      "fuel": 27,
+      "ships": [ { "n": [0.12, 0.88], "gate": [0.88, 0.88] }, { "n": [0.88, 0.12], "gate": [0.12, 0.12] } ],
+      "rocks": [
+        { "n": [0.50, 0.20], "r": 16 },
+        { "n": [0.50, 0.80], "r": 16 }
+      ],
+      "wells": [ { "n": [0.50, 0.50], "r": 96, "pull": 46 } ],
+      "cells": [ [0.50, 0.62] ]
+    },
+    {
+      "index": 4,
+      "id": "crossfire",
+      "name": { "zh": "交叉火力", "en": "Crossfire" },
+      "teach": { "zh": "会动的小行星：错开相位，别在同一秒穿过同一行。", "en": "Some rocks patrol. Time your crossing — never two ships through the same lane at once." },
+      "fuel": 34,
+      "ships": [ { "n": [0.15, 0.90], "gate": [0.15, 0.08] }, { "n": [0.85, 0.90], "gate": [0.85, 0.08] } ],
+      "rocks": [
+        { "n": [0.50, 0.20], "r": 20 },
+        { "n": [0.50, 0.80], "r": 20 },
+        { "n": [0.05, 0.42], "r": 17, "path": { "to": [0.95, 0.42], "speed": 34 } },
+        { "n": [0.95, 0.62], "r": 17, "path": { "to": [0.05, 0.62], "speed": 34 } }
+      ],
+      "wells": [],
+      "cells": [ [0.50, 0.72] ]
+    },
+    {
+      "index": 5,
+      "id": "needle",
+      "name": { "zh": "针眼", "en": "Needle" },
+      "teach": { "zh": "贴着引力井走能省油，但窄缝只够一艘船。", "en": "Hug a well to save fuel — but the needle only fits one ship at a time." },
+      "fuel": 32,
+      "ships": [ { "n": [0.10, 0.92], "gate": [0.10, 0.08] }, { "n": [0.90, 0.92], "gate": [0.90, 0.08] } ],
+      "rocks": [
+        { "n": [0.50, 0.30], "r": 18 },
+        { "n": [0.50, 0.70], "r": 18 },
+        { "n": [0.34, 0.50], "r": 14 },
+        { "n": [0.66, 0.50], "r": 14 },
+        { "n": [0.50, 0.95], "r": 15, "path": { "to": [0.50, 0.05], "speed": 26 } }
+      ],
+      "wells": [
+        { "n": [0.22, 0.50], "r": 70, "pull": 38 },
+        { "n": [0.78, 0.50], "r": 70, "pull": 38 }
+      ],
+      "cells": [ [0.50, 0.50] ]
+    },
+    {
+      "index": 6,
+      "id": "slingshot",
+      "name": { "zh": "弹弓", "en": "Slingshot" },
+      "teach": { "zh": "一次漂亮的引力弹弓，能省下半箱油。", "en": "A clean slingshot around the big well pays for itself twice over." },
+      "fuel": 36,
+      "ships": [ { "n": [0.10, 0.90], "gate": [0.90, 0.10] }, { "n": [0.90, 0.90], "gate": [0.10, 0.10] } ],
+      "rocks": [
+        { "n": [0.50, 0.14], "r": 17 },
+        { "n": [0.50, 0.86], "r": 17 },
+        { "n": [0.24, 0.50], "r": 15 },
+        { "n": [0.76, 0.30], "r": 14, "path": { "to": [0.76, 0.70], "speed": 40 } },
+        { "n": [0.30, 0.70], "r": 14, "path": { "to": [0.30, 0.30], "speed": 40 } }
+      ],
+      "wells": [ { "n": [0.50, 0.50], "r": 78, "pull": 62 } ],
+      "cells": [ [0.72, 0.50], [0.28, 0.22] ]
+    },
+    {
+      "index": 7,
+      "id": "drytank",
+      "name": { "zh": "干油箱", "en": "Dry Tank" },
+      "teach": { "zh": "油不够了。绕路吃油桶，还是赌一把直冲？", "en": "Not enough fuel. Detour for cells, or gamble on the straight line?" },
+      "fuel": 32,
+      "ships": [ { "n": [0.14, 0.88], "gate": [0.86, 0.12] }, { "n": [0.86, 0.88], "gate": [0.14, 0.12] } ],
+      "rocks": [
+        { "n": [0.50, 0.22], "r": 20 },
+        { "n": [0.50, 0.78], "r": 20 },
+        { "n": [0.20, 0.50], "r": 16 },
+        { "n": [0.80, 0.50], "r": 16 },
+        { "n": [0.35, 0.35], "r": 14, "path": { "to": [0.65, 0.65], "speed": 38 } },
+        { "n": [0.65, 0.35], "r": 14, "path": { "to": [0.35, 0.65], "speed": 38 } }
+      ],
+      "wells": [ { "n": [0.50, 0.50], "r": 80, "pull": 44 } ],
+      "cells": [ [0.22, 0.18], [0.78, 0.82], [0.50, 0.50] ]
+    },
+    {
+      "index": 8,
+      "id": "twingauntlet",
+      "name": { "zh": "双子甬道", "en": "Twin Gauntlet" },
+      "teach": { "zh": "全部法则同时生效。两艘船，一箱油。", "en": "Every rule at once. Two ships, one tank — bring them both home." },
+      "fuel": 36,
+      "ships": [ { "n": [0.10, 0.92], "gate": [0.90, 0.08] }, { "n": [0.90, 0.92], "gate": [0.10, 0.08] } ],
+      "rocks": [
+        { "n": [0.50, 0.50], "r": 16 },
+        { "n": [0.50, 0.12], "r": 18 },
+        { "n": [0.50, 0.88], "r": 18 },
+        { "n": [0.16, 0.50], "r": 15 },
+        { "n": [0.84, 0.50], "r": 15 },
+        { "n": [0.05, 0.28], "r": 15, "path": { "to": [0.95, 0.28], "speed": 44 } },
+        { "n": [0.95, 0.72], "r": 15, "path": { "to": [0.05, 0.72], "speed": 44 } },
+        { "n": [0.50, 0.98], "r": 13, "path": { "to": [0.50, 0.02], "speed": 36 } }
+      ],
+      "wells": [
+        { "n": [0.28, 0.34], "r": 72, "pull": 50 },
+        { "n": [0.72, 0.66], "r": 72, "pull": 50 }
+      ],
+      "cells": [ [0.30, 0.80], [0.70, 0.20] ]
+    }
+  ]
+}

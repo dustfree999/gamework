@@ -1,0 +1,4743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#050B1A">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Twin Burn - fly two drifting ships on one shared fuel tank and dock both before it runs dry.">
+<title>Twin Burn</title>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#050B1A;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+    -webkit-touch-callout:none;touch-action:none;overscroll-behavior:none}
+  #stage{display:block;position:fixed;left:0;top:0;touch-action:none;outline:none}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<script>
+window.__TWIN_BUILTIN_CONFIG__ = {
+  "_comment": "Twin Burn (H5 offline) operational parameters. Single source of truth: build_h5_twin.py inlines this object into window.gameConfig, so no business value is hardcoded in the game code.",
+  "meta": {
+    "gameId": "twinburn",
+    "title": {
+      "zh": "双星推力",
+      "en": "Twin Burn"
+    },
+    "subtitle": {
+      "zh": "两艘船，一箱油",
+      "en": "Two ships. One tank."
+    }
+  },
+  "viewport": {
+    "designWidth": 402,
+    "designHeight": 619,
+    "guardTopPct": 0.05,
+    "guardBottomPct": 0.05,
+    "cornerClearPx": 26,
+    "minTapSizePx": 40,
+    "_maxPixelRatio": "render at the screen's native density so vector edges and text stay crisp; the adaptive block only kicks in if a device cannot hold the frame budget.",
+    "maxPixelRatio": 3,
+    "_adaptiveQuality": "sampleFrames = ring buffer size; minFrames = frames before judging; slowFrameMs = median budget (22ms ~ 45fps); steps = successive caps to fall back to.",
+    "adaptiveQuality": {
+      "enabled": true,
+      "sampleFrames": 60,
+      "minFrames": 90,
+      "checkEvery": 30,
+      "slowFrameMs": 22,
+      "steps": [
+        2,
+        1.5
+      ]
+    }
+  },
+  "locale": {
+    "supported": [
+      "zh",
+      "en"
+    ],
+    "fallback": "en",
+    "_followSystem": "false = always start in English and let the player switch; true = sniff the device locale. English remains the fallback either way.",
+    "followSystem": false
+  },
+  "arena": {
+    "_comment": "The play field is inset from the safe content box; levels store normalised coordinates (0..1) so a notch or a different aspect never pushes geometry outside the safe area.",
+    "hudHeight": 46,
+    "hintHeight": 26,
+    "levelInsetTop": 6,
+    "levelInsetBottom": 6
+  },
+  "physics": {
+    "_comment": "All motion is integrated from these numbers only; the simulation is deterministic so the rules can be unit-tested and replayed.",
+    "_fuelBudget": "Each level fuel value is derived, not guessed: the e2e harness strips the hazards, flies the level with the naive autopilot to measure its irreducible travel cost, and this table is set to 2.3x-3.2x that cost. The gate lives in the harness so a retune that turns the tank into decoration fails the build.",
+    "thrust": 232,
+    "maxSpeed": 196,
+    "dragPerSec": 0.055,
+    "burnPerSec": 2.6,
+    "burnIdlePerSec": 0.05,
+    "thrustRampSec": 0.16,
+    "deadZonePx": 24,
+    "dockRadius": 23,
+    "dockSoftSpeed": 46,
+    "shipRadius": 7,
+    "assignHysteresisPx": 20,
+    "wallRestitution": 0.52,
+    "rockSpinMin": 0.25,
+    "rockSpinMax": 0.9
+  },
+  "scoring": {
+    "levelBase": 400,
+    "fuelBonus": 600,
+    "softDockBonus": 150,
+    "cellBonus": 60,
+    "fuelCellAmount": 10,
+    "star3Ratio": 0.5,
+    "star2Ratio": 0.3
+  },
+  "audio": {
+    "enabled": true,
+    "masterVolume": 0.42,
+    "thrustVolume": 0.17
+  },
+  "anim": {
+    "briefSec": 1.25,
+    "resultDelaySec": 0.7,
+    "crashSlowMoSec": 0.26,
+    "dockFlashSec": 0.32,
+    "lowFuelRatio": 0.25,
+    "trailMax": 22,
+    "particleCap": 240,
+    "exhaustEverySec": 0.055
+  },
+  "storage": {
+    "prefix": "twinburn_",
+    "keys": {
+      "lang": "lang",
+      "theme": "theme",
+      "stats": "stats",
+      "agreed": "agreed",
+      "best": "best"
+    },
+    "maxValueBytes": 262144
+  },
+  "themes": [
+    {
+      "id": "deepfield",
+      "name": {
+        "zh": "深场",
+        "en": "Deep Field"
+      },
+      "dark": true,
+      "bg": [
+        "#050B1A",
+        "#0C1730"
+      ],
+      "starA": "#9FD8FF",
+      "starB": "#FFE9B0",
+      "text": "#EAF3FF",
+      "muted": "#8FA6C4",
+      "titleGrad": [
+        "#EAF6FF",
+        "#59C8FF"
+      ],
+      "titleEdge": "#08101F",
+      "subtitle": "#7FD6FF",
+      "primary": "#37C6FF",
+      "accent": "#FFB300",
+      "warn": "#FF5C4D",
+      "btnGrad": [
+        "#37C6FF",
+        "#1668C8"
+      ],
+      "btnText": "#04121F",
+      "bannerGrad": [
+        "#2E7BD6",
+        "#123C77"
+      ],
+      "cardBg": "rgba(11,23,48,0.92)",
+      "hudBg": "rgba(8,18,38,0.72)",
+      "edge": "#2C4570",
+      "rock": "#3A4A63",
+      "rockEdge": "#7A8CA8",
+      "well": "#8A6BFF",
+      "cell": "#4BE38A",
+      "shipA": [
+        "#FF6B4A",
+        "#B93A22",
+        "#FFB59E"
+      ],
+      "shipB": [
+        "#2ED3FF",
+        "#0E7FA8",
+        "#9BE9FF"
+      ]
+    },
+    {
+      "id": "abyss",
+      "name": {
+        "zh": "深渊",
+        "en": "Abyss"
+      },
+      "dark": true,
+      "bg": [
+        "#03130F",
+        "#082B26"
+      ],
+      "starA": "#8FF0D8",
+      "starB": "#D8FFC4",
+      "text": "#E4FFF6",
+      "muted": "#84B0A4",
+      "titleGrad": [
+        "#E6FFF8",
+        "#4EE0B4"
+      ],
+      "titleEdge": "#04140F",
+      "subtitle": "#6FE9C6",
+      "primary": "#4EE0B4",
+      "accent": "#FFD166",
+      "warn": "#FF6B6B",
+      "btnGrad": [
+        "#4EE0B4",
+        "#12866A"
+      ],
+      "btnText": "#02120D",
+      "bannerGrad": [
+        "#1E9E7C",
+        "#0A4A3A"
+      ],
+      "cardBg": "rgba(6,30,26,0.92)",
+      "hudBg": "rgba(4,22,19,0.72)",
+      "edge": "#1E4F45",
+      "rock": "#2E4A46",
+      "rockEdge": "#6E9C92",
+      "well": "#B07CFF",
+      "cell": "#B6FF5C",
+      "shipA": [
+        "#FF8A5C",
+        "#C04E22",
+        "#FFC4A6"
+      ],
+      "shipB": [
+        "#4EE0B4",
+        "#12866A",
+        "#AEF6E0"
+      ]
+    }
+  ],
+  "defaultTheme": "deepfield",
+  "levels": [
+    {
+      "index": 1,
+      "id": "firstburn",
+      "name": {
+        "zh": "首次点火",
+        "en": "First Burn"
+      },
+      "teach": {
+        "zh": "按住屏幕，把船拉向手指——松手后它不会停。",
+        "en": "Hold the screen and the nearest ship is pulled toward your finger. Let go and it keeps drifting."
+      },
+      "fuel": 36,
+      "ships": [
+        {
+          "n": [
+            0.12,
+            0.86
+          ],
+          "gate": [
+            0.12,
+            0.12
+          ]
+        },
+        {
+          "n": [
+            0.88,
+            0.86
+          ],
+          "gate": [
+            0.88,
+            0.12
+          ]
+        }
+      ],
+      "rocks": [],
+      "wells": [],
+      "cells": []
+    },
+    {
+      "index": 2,
+      "id": "driftfield",
+      "name": {
+        "zh": "漂移带",
+        "en": "Drift Field"
+      },
+      "teach": {
+        "zh": "船不会自己停：提前松手，用惯性滑进港口。",
+        "en": "Ships never brake themselves. Release early and coast into the dock."
+      },
+      "fuel": 35,
+      "ships": [
+        {
+          "n": [
+            0.14,
+            0.88
+          ],
+          "gate": [
+            0.2,
+            0.1
+          ]
+        },
+        {
+          "n": [
+            0.86,
+            0.88
+          ],
+          "gate": [
+            0.8,
+            0.1
+          ]
+        }
+      ],
+      "rocks": [
+        {
+          "n": [
+            0.5,
+            0.42
+          ],
+          "r": 22
+        },
+        {
+          "n": [
+            0.3,
+            0.6
+          ],
+          "r": 16
+        },
+        {
+          "n": [
+            0.7,
+            0.6
+          ],
+          "r": 16
+        }
+      ],
+      "wells": [],
+      "cells": [
+        [
+          0.5,
+          0.78
+        ]
+      ]
+    },
+    {
+      "index": 3,
+      "id": "wellspring",
+      "name": {
+        "zh": "井泉",
+        "en": "Well Spring"
+      },
+      "teach": {
+        "zh": "引力井会替你加速，也会把你拖进去。",
+        "en": "A gravity well will slingshot you — or swallow you. It pulls hardest at its core."
+      },
+      "fuel": 27,
+      "ships": [
+        {
+          "n": [
+            0.12,
+            0.88
+          ],
+          "gate": [
+            0.88,
+            0.88
+          ]
+        },
+        {
+          "n": [
+            0.88,
+            0.12
+          ],
+          "gate": [
+            0.12,
+            0.12
+          ]
+        }
+      ],
+      "rocks": [
+        {
+          "n": [
+            0.5,
+            0.2
+          ],
+          "r": 16
+        },
+        {
+          "n": [
+            0.5,
+            0.8
+          ],
+          "r": 16
+        }
+      ],
+      "wells": [
+        {
+          "n": [
+            0.5,
+            0.5
+          ],
+          "r": 96,
+          "pull": 46
+        }
+      ],
+      "cells": [
+        [
+          0.5,
+          0.62
+        ]
+      ]
+    },
+    {
+      "index": 4,
+      "id": "crossfire",
+      "name": {
+        "zh": "交叉火力",
+        "en": "Crossfire"
+      },
+      "teach": {
+        "zh": "会动的小行星：错开相位，别在同一秒穿过同一行。",
+        "en": "Some rocks patrol. Time your crossing — never two ships through the same lane at once."
+      },
+      "fuel": 34,
+      "ships": [
+        {
+          "n": [
+            0.15,
+            0.9
+          ],
+          "gate": [
+            0.15,
+            0.08
+          ]
+        },
+        {
+          "n": [
+            0.85,
+            0.9
+          ],
+          "gate": [
+            0.85,
+            0.08
+          ]
+        }
+      ],
+      "rocks": [
+        {
+          "n": [
+            0.5,
+            0.2
+          ],
+          "r": 20
+        },
+        {
+          "n": [
+            0.5,
+            0.8
+          ],
+          "r": 20
+        },
+        {
+          "n": [
+            0.05,
+            0.42
+          ],
+          "r": 17,
+          "path": {
+            "to": [
+              0.95,
+              0.42
+            ],
+            "speed": 34
+          }
+        },
+        {
+          "n": [
+            0.95,
+            0.62
+          ],
+          "r": 17,
+          "path": {
+            "to": [
+              0.05,
+              0.62
+            ],
+            "speed": 34
+          }
+        }
+      ],
+      "wells": [],
+      "cells": [
+        [
+          0.5,
+          0.72
+        ]
+      ]
+    },
+    {
+      "index": 5,
+      "id": "needle",
+      "name": {
+        "zh": "针眼",
+        "en": "Needle"
+      },
+      "teach": {
+        "zh": "贴着引力井走能省油，但窄缝只够一艘船。",
+        "en": "Hug a well to save fuel — but the needle only fits one ship at a time."
+      },
+      "fuel": 32,
+      "ships": [
+        {
+          "n": [
+            0.1,
+            0.92
+          ],
+          "gate": [
+            0.1,
+            0.08
+          ]
+        },
+        {
+          "n": [
+            0.9,
+            0.92
+          ],
+          "gate": [
+            0.9,
+            0.08
+          ]
+        }
+      ],
+      "rocks": [
+        {
+          "n": [
+            0.5,
+            0.3
+          ],
+          "r": 18
+        },
+        {
+          "n": [
+            0.5,
+            0.7
+          ],
+          "r": 18
+        },
+        {
+          "n": [
+            0.34,
+            0.5
+          ],
+          "r": 14
+        },
+        {
+          "n": [
+            0.66,
+            0.5
+          ],
+          "r": 14
+        },
+        {
+          "n": [
+            0.5,
+            0.95
+          ],
+          "r": 15,
+          "path": {
+            "to": [
+              0.5,
+              0.05
+            ],
+            "speed": 26
+          }
+        }
+      ],
+      "wells": [
+        {
+          "n": [
+            0.22,
+            0.5
+          ],
+          "r": 70,
+          "pull": 38
+        },
+        {
+          "n": [
+            0.78,
+            0.5
+          ],
+          "r": 70,
+          "pull": 38
+        }
+      ],
+      "cells": [
+        [
+          0.5,
+          0.5
+        ]
+      ]
+    },
+    {
+      "index": 6,
+      "id": "slingshot",
+      "name": {
+        "zh": "弹弓",
+        "en": "Slingshot"
+      },
+      "teach": {
+        "zh": "一次漂亮的引力弹弓，能省下半箱油。",
+        "en": "A clean slingshot around the big well pays for itself twice over."
+      },
+      "fuel": 36,
+      "ships": [
+        {
+          "n": [
+            0.1,
+            0.9
+          ],
+          "gate": [
+            0.9,
+            0.1
+          ]
+        },
+        {
+          "n": [
+            0.9,
+            0.9
+          ],
+          "gate": [
+            0.1,
+            0.1
+          ]
+        }
+      ],
+      "rocks": [
+        {
+          "n": [
+            0.5,
+            0.14
+          ],
+          "r": 17
+        },
+        {
+          "n": [
+            0.5,
+            0.86
+          ],
+          "r": 17
+        },
+        {
+          "n": [
+            0.24,
+            0.5
+          ],
+          "r": 15
+        },
+        {
+          "n": [
+            0.76,
+            0.3
+          ],
+          "r": 14,
+          "path": {
+            "to": [
+              0.76,
+              0.7
+            ],
+            "speed": 40
+          }
+        },
+        {
+          "n": [
+            0.3,
+            0.7
+          ],
+          "r": 14,
+          "path": {
+            "to": [
+              0.3,
+              0.3
+            ],
+            "speed": 40
+          }
+        }
+      ],
+      "wells": [
+        {
+          "n": [
+            0.5,
+            0.5
+          ],
+          "r": 78,
+          "pull": 62
+        }
+      ],
+      "cells": [
+        [
+          0.72,
+          0.5
+        ],
+        [
+          0.28,
+          0.22
+        ]
+      ]
+    },
+    {
+      "index": 7,
+      "id": "drytank",
+      "name": {
+        "zh": "干油箱",
+        "en": "Dry Tank"
+      },
+      "teach": {
+        "zh": "油不够了。绕路吃油桶，还是赌一把直冲？",
+        "en": "Not enough fuel. Detour for cells, or gamble on the straight line?"
+      },
+      "fuel": 32,
+      "ships": [
+        {
+          "n": [
+            0.14,
+            0.88
+          ],
+          "gate": [
+            0.86,
+            0.12
+          ]
+        },
+        {
+          "n": [
+            0.86,
+            0.88
+          ],
+          "gate": [
+            0.14,
+            0.12
+          ]
+        }
+      ],
+      "rocks": [
+        {
+          "n": [
+            0.5,
+            0.22
+          ],
+          "r": 20
+        },
+        {
+          "n": [
+            0.5,
+            0.78
+          ],
+          "r": 20
+        },
+        {
+          "n": [
+            0.2,
+            0.5
+          ],
+          "r": 16
+        },
+        {
+          "n": [
+            0.8,
+            0.5
+          ],
+          "r": 16
+        },
+        {
+          "n": [
+            0.35,
+            0.35
+          ],
+          "r": 14,
+          "path": {
+            "to": [
+              0.65,
+              0.65
+            ],
+            "speed": 38
+          }
+        },
+        {
+          "n": [
+            0.65,
+            0.35
+          ],
+          "r": 14,
+          "path": {
+            "to": [
+              0.35,
+              0.65
+            ],
+            "speed": 38
+          }
+        }
+      ],
+      "wells": [
+        {
+          "n": [
+            0.5,
+            0.5
+          ],
+          "r": 80,
+          "pull": 44
+        }
+      ],
+      "cells": [
+        [
+          0.22,
+          0.18
+        ],
+        [
+          0.78,
+          0.82
+        ],
+        [
+          0.5,
+          0.5
+        ]
+      ]
+    },
+    {
+      "index": 8,
+      "id": "twingauntlet",
+      "name": {
+        "zh": "双子甬道",
+        "en": "Twin Gauntlet"
+      },
+      "teach": {
+        "zh": "全部法则同时生效。两艘船，一箱油。",
+        "en": "Every rule at once. Two ships, one tank — bring them both home."
+      },
+      "fuel": 36,
+      "ships": [
+        {
+          "n": [
+            0.1,
+            0.92
+          ],
+          "gate": [
+            0.9,
+            0.08
+          ]
+        },
+        {
+          "n": [
+            0.9,
+            0.92
+          ],
+          "gate": [
+            0.1,
+            0.08
+          ]
+        }
+      ],
+      "rocks": [
+        {
+          "n": [
+            0.5,
+            0.5
+          ],
+          "r": 16
+        },
+        {
+          "n": [
+            0.5,
+            0.12
+          ],
+          "r": 18
+        },
+        {
+          "n": [
+            0.5,
+            0.88
+          ],
+          "r": 18
+        },
+        {
+          "n": [
+            0.16,
+            0.5
+          ],
+          "r": 15
+        },
+        {
+          "n": [
+            0.84,
+            0.5
+          ],
+          "r": 15
+        },
+        {
+          "n": [
+            0.05,
+            0.28
+          ],
+          "r": 15,
+          "path": {
+            "to": [
+              0.95,
+              0.28
+            ],
+            "speed": 44
+          }
+        },
+        {
+          "n": [
+            0.95,
+            0.72
+          ],
+          "r": 15,
+          "path": {
+            "to": [
+              0.05,
+              0.72
+            ],
+            "speed": 44
+          }
+        },
+        {
+          "n": [
+            0.5,
+            0.98
+          ],
+          "r": 13,
+          "path": {
+            "to": [
+              0.5,
+              0.02
+            ],
+            "speed": 36
+          }
+        }
+      ],
+      "wells": [
+        {
+          "n": [
+            0.28,
+            0.34
+          ],
+          "r": 72,
+          "pull": 50
+        },
+        {
+          "n": [
+            0.72,
+            0.66
+          ],
+          "r": 72,
+          "pull": 50
+        }
+      ],
+      "cells": [
+        [
+          0.3,
+          0.8
+        ],
+        [
+          0.7,
+          0.2
+        ]
+      ]
+    }
+  ]
+};
+(function(){
+"use strict";
+/* ===== 01-core.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §1  CORE — platform contract, config access, storage, viewport, math
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Host contract (per platform spec §9):
+     window.gameConfig  — get/set of all runtime parameters (game_config.json)
+     window.lib.getAsset(assetId) — dynamic resource loading
+     bridge.viewport.getSafeArea() — safe-area insets
+     bridge.storage — cross-device key/value store
+   Every one of these is optional at runtime: the package must stay fully playable
+   offline in a bare WebView, so each call site has a local fallback.            */
+
+function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+
+function deepMerge(base, over) {
+  var out = {};
+  var k;
+  if (isObj(base)) { for (k in base) { if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k]; } }
+  if (isObj(over)) {
+    for (k in over) {
+      if (!Object.prototype.hasOwnProperty.call(over, k)) continue;
+      out[k] = (isObj(out[k]) && isObj(over[k])) ? deepMerge(out[k], over[k]) : over[k];
+    }
+  }
+  return out;
+}
+
+/* The object below is emitted at build time from game_config.json (see
+   build_h5_twin.py) — it is not authored here, so every business value lives in
+   exactly one place and nothing is hardcoded in the game code. */
+var BUILTIN_CONFIG = window.__TWIN_BUILTIN_CONFIG__ || {};
+try { delete window.__TWIN_BUILTIN_CONFIG__; } catch (e) { /* leave it */ }
+
+var HOST_CONFIG = isObj(window.gameConfig) ? window.gameConfig : null;
+var CONFIG = deepMerge(BUILTIN_CONFIG, HOST_CONFIG);
+
+/* get/set accessors so operational tuning can be driven through the documented
+   window.gameConfig object (dotted path, e.g. gameConfig.get('physics.snapRadius')). */
+function cfgGet(path, dflt) {
+  var cur = CONFIG;
+  var parts = String(path).split('.');
+  for (var i = 0; i < parts.length; i += 1) {
+    if (!isObj(cur) || !(parts[i] in cur)) return dflt;
+    cur = cur[parts[i]];
+  }
+  return cur === undefined ? dflt : cur;
+}
+function cfgSet(path, value) {
+  var parts = String(path).split('.');
+  var cur = CONFIG;
+  for (var i = 0; i < parts.length - 1; i += 1) {
+    if (!isObj(cur[parts[i]])) cur[parts[i]] = {};
+    cur = cur[parts[i]];
+  }
+  cur[parts[parts.length - 1]] = value;
+  return value;
+}
+
+window.gameConfig = CONFIG;
+/* Non-enumerable so a config dump stays clean for auditors. */
+try {
+  Object.defineProperty(window.gameConfig, 'get', { value: cfgGet, enumerable: false });
+  Object.defineProperty(window.gameConfig, 'set', { value: cfgSet, enumerable: false });
+  Object.defineProperty(window.gameConfig, 'source', { value: 'game_config.json', enumerable: false });
+} catch (e) { /* frozen host object: keep plain access */ }
+
+/* Late override: a served build can refine parameters from the sidecar file
+   without a rebuild. Host-provided values keep priority. */
+function refreshConfigFromSidecar() {
+  try {
+    if (typeof fetch !== 'function') return;
+    fetch('game_config.json', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!isObj(j)) return;
+        var host = isObj(HOST_CONFIG) ? HOST_CONFIG : {};
+        var merged = deepMerge(deepMerge(BUILTIN_CONFIG, j), host);
+        for (var k in merged) {
+          if (Object.prototype.hasOwnProperty.call(merged, k)) CONFIG[k] = merged[k];
+        }
+      })
+      .catch(function () { /* offline: built-in values stand */ });
+  } catch (e) { /* no fetch: built-in values stand */ }
+}
+
+/* ── math ────────────────────────────────────────────────────────────────── */
+var TAU = Math.PI * 2;
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function easeInCubic(t) { return t * t * t; }
+function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+function easeOutBack(t) {
+  var c1 = 1.70158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+function easeOutElastic(t) {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  var c4 = TAU / 3;
+  return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+}
+function dist2(ax, ay, bx, by) { var dx = ax - bx, dy = ay - by; return Math.sqrt(dx * dx + dy * dy); }
+
+/* Deterministic 32-bit PRNG — solo layouts are reproducible from a seed. */
+function mulberry32(seed) {
+  var a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function fmt(tpl, vars) {
+  var out = String(tpl);
+  if (vars) {
+    for (var k in vars) {
+      if (Object.prototype.hasOwnProperty.call(vars, k)) out = out.split('{' + k + '}').join(String(vars[k]));
+    }
+  }
+  return out;
+}
+
+/* ── storage: bridge.storage when present, local fallback otherwise ─────── */
+var STORE = (function () {
+  var prefix = cfgGet('storage.prefix', 'twinburn_');
+  var keys = cfgGet('storage.keys', {});
+  var maxBytes = cfgGet('storage.maxValueBytes', 262144);
+  var bridge = window.bridge;
+
+  function fullKey(name) { return prefix + (keys[name] || name); }
+
+  function bridgeGet(k) {
+    try {
+      if (bridge && bridge.storage && typeof bridge.storage.getItem === 'function') return bridge.storage.getItem(k);
+      if (bridge && bridge.storage && typeof bridge.storage.get === 'function') return bridge.storage.get(k);
+    } catch (e) { /* fall through */ }
+    return undefined;
+  }
+  function bridgeSet(k, v) {
+    try {
+      if (bridge && bridge.storage && typeof bridge.storage.setItem === 'function') { bridge.storage.setItem(k, v); return true; }
+      if (bridge && bridge.storage && typeof bridge.storage.set === 'function') { bridge.storage.set(k, v); return true; }
+    } catch (e) { /* fall through */ }
+    return false;
+  }
+
+  function get(name, dflt) {
+    var k = fullKey(name);
+    var raw = bridgeGet(k);
+    if (raw === undefined || raw === null || raw === '') {
+      try { raw = window.localStorage.getItem(k); } catch (e) { raw = null; }
+    }
+    if (raw === undefined || raw === null || raw === '') return dflt;
+    try { return JSON.parse(raw); } catch (e) { return typeof raw === 'string' ? raw : dflt; }
+  }
+
+  function set(name, value) {
+    var k = fullKey(name);
+    var raw;
+    try { raw = JSON.stringify(value); } catch (e) { return false; }
+    /* Platform quota: one key must stay under 256KB. Oversized writes are dropped
+       rather than risking the whole store. */
+    if (raw.length > maxBytes) return false;
+    if (bridgeSet(k, raw)) return true;
+    try { window.localStorage.setItem(k, raw); return true; } catch (e) { return false; }
+  }
+
+  return { get: get, set: set, key: fullKey };
+})();
+
+/* ── viewport / safe area / stage layout ────────────────────────────────── */
+function readSafeArea() {
+  var out = { top: 0, right: 0, bottom: 0, left: 0, known: false };
+  try {
+    var b = window.bridge;
+    if (b && b.viewport && typeof b.viewport.getSafeArea === 'function') {
+      var sa = b.viewport.getSafeArea();
+      if (isObj(sa)) {
+        out.top = Number(sa.top) || 0;
+        out.right = Number(sa.right) || 0;
+        out.bottom = Number(sa.bottom) || 0;
+        out.left = Number(sa.left) || 0;
+        /* Some hosts report a full rect instead of insets. */
+        if (sa.height && sa.y !== undefined && !sa.top && !sa.bottom) {
+          out.top = Number(sa.y) || 0;
+          out.bottom = Math.max(0, (Number(window.innerHeight) || 0) - (Number(sa.y) + Number(sa.height)));
+        }
+        out.known = true;
+      }
+    }
+  } catch (e) { /* host without the bridge: treat as no insets */ }
+  return out;
+}
+
+/* Probing CSS env() insets needs a real element; done once at boot. */
+function cssEnvInsets() {
+  var out = { top: 0, right: 0, bottom: 0, left: 0 };
+  try {
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;' +
+      'padding-top:env(safe-area-inset-top);padding-right:env(safe-area-inset-right);' +
+      'padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);';
+    document.body.appendChild(probe);
+    var cs = window.getComputedStyle(probe);
+    out.top = parseFloat(cs.paddingTop) || 0;
+    out.right = parseFloat(cs.paddingRight) || 0;
+    out.bottom = parseFloat(cs.paddingBottom) || 0;
+    out.left = parseFloat(cs.paddingLeft) || 0;
+    document.body.removeChild(probe);
+  } catch (e) { /* keep zeros */ }
+  return out;
+}
+
+var LAY = {
+  DW: cfgGet('viewport.designWidth', 402),
+  DH: cfgGet('viewport.designHeight', 619),
+  scale: 1, stageX: 0, stageY: 0, stageW: 402, stageH: 619,
+  contentTop: 0, contentBottom: 0, contentLeft: 0, contentRight: 0,
+  corner: cfgGet('viewport.cornerClearPx', 26),
+  safe: { top: 0, right: 0, bottom: 0, left: 0 }
+};
+
+function relayout() {
+  var vw = Math.max(1, window.innerWidth || 1);
+  var vh = Math.max(1, window.innerHeight || 1);
+  var scale = Math.min(vw / LAY.DW, vh / LAY.DH);
+  LAY.scale = scale;
+  LAY.stageW = LAY.DW * scale;
+  LAY.stageH = LAY.DH * scale;
+  LAY.stageX = (vw - LAY.stageW) / 2;
+  LAY.stageY = (vh - LAY.stageH) / 2;
+
+  var hostSa = readSafeArea();
+  var cssSa = hostSa.known ? { top: 0, right: 0, bottom: 0, left: 0 } : cssEnvInsets();
+  LAY.safe = {
+    top: hostSa.top || cssSa.top,
+    right: Math.max(hostSa.right || 0, cssSa.right),
+    bottom: Math.max(hostSa.bottom || 0, cssSa.bottom),
+    left: Math.max(hostSa.left || 0, cssSa.left)
+  };
+
+  /* Insets are viewport-relative; only the part that eats into the stage counts. */
+  function inside(px, origin, span) { return clamp((px - origin) / scale, 0, span); }
+  var gTop = LAY.DH * cfgGet('viewport.guardTopPct', 0.05);
+  var gBottom = LAY.DH * cfgGet('viewport.guardBottomPct', 0.05);
+  var sTop = inside(LAY.safe.top, LAY.stageY, LAY.DH);
+  var sBottom = inside(LAY.safe.bottom, LAY.stageY, LAY.DH);
+  var sLeft = inside(LAY.safe.left, LAY.stageX, LAY.DW);
+  var sRight = inside(LAY.safe.right, LAY.stageX, LAY.DW);
+
+  /* Corner clearance: rounded display corners must never host a tap target, so the
+     side margin is the larger of the base gutter, the safe inset and half the corner radius. */
+  var base = 16;
+  LAY.contentTop = gTop + sTop;
+  LAY.contentBottom = LAY.DH - gBottom - sBottom;
+  LAY.contentLeft = Math.max(base + sLeft, LAY.corner * 0.5);
+  LAY.contentRight = LAY.DW - Math.max(base + sRight, LAY.corner * 0.5);
+
+  var canvas = document.getElementById('stage');
+  var dpr = effectivePixelRatio();
+  canvas.width = Math.round(vw * dpr);
+  canvas.height = Math.round(vh * dpr);
+  canvas.style.width = vw + 'px';
+  canvas.style.height = vh + 'px';
+  CTX = canvas.getContext('2d');
+  CTX.setTransform(dpr, 0, 0, dpr, 0, 0);
+  VIEW = { vw: vw, vh: vh, dpr: dpr };
+}
+
+/* ── render quality ─────────────────────────────────────────────────────── */
+/* The platform cannot guarantee a single GPU/engine build, so the game renders at
+   the screen's native density for crispness and steps that down only if a device
+   cannot hold the frame budget. The policy below is pure and unit-testable. */
+var QUALITY = {
+  cap: cfgGet('viewport.maxPixelRatio', 3),
+  step: 0,
+  samples: [],
+  frames: 0
+};
+
+function effectivePixelRatio() {
+  return Math.min(window.devicePixelRatio || 1, QUALITY.cap);
+}
+
+function medianOf(samples) {
+  if (!samples.length) return 0;
+  var s = samples.slice().sort(function (a, b) { return a - b; });
+  return s[Math.floor(s.length / 2)];
+}
+
+/** True when a sustained median frame time has blown the budget. */
+function shouldDowngrade(samples) {
+  var c = cfgGet('viewport.adaptiveQuality', {});
+  if (c.enabled === false) return false;
+  if (samples.length < (c.minFrames || 90)) return false;
+  return medianOf(samples) > (c.slowFrameMs || 22);
+}
+
+/** Drop one quality step (never below the last configured cap). */
+function applyQualityStep() {
+  var steps = cfgGet('viewport.adaptiveQuality.steps', [2, 1.5]);
+  if (QUALITY.step >= steps.length) return false;
+  QUALITY.cap = steps[QUALITY.step];
+  QUALITY.step += 1;
+  QUALITY.samples = [];
+  QUALITY.frames = 0;
+  relayout();
+  resetDeco();
+  return true;
+}
+
+function sampleFrame(ms) {
+  var c = cfgGet('viewport.adaptiveQuality', {});
+  var max = c.sampleFrames || 60;
+  QUALITY.samples.push(ms);
+  if (QUALITY.samples.length > max) QUALITY.samples.shift();
+  QUALITY.frames += 1;
+  if (QUALITY.frames % (c.checkEvery || 30) === 0 && shouldDowngrade(QUALITY.samples)) {
+    applyQualityStep();
+  }
+}
+
+/* Design units -> CSS px (the only conversion the drawing code needs). */
+function sx(x) { return LAY.stageX + x * LAY.scale; }
+function sy(y) { return LAY.stageY + y * LAY.scale; }
+/* CSS px -> design units (input). */
+function ux(px) { return (px - LAY.stageX) / LAY.scale; }
+function uy(py) { return (py - LAY.stageY) / LAY.scale; }
+
+var CTX = null;
+var VIEW = { vw: 402, vh: 619, dpr: 1 };
+
+
+/* ===== 02-i18n.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §2  I18N — every visible string, zh + en, English is the fallback locale
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var DICT = {
+  'game.title': { zh: '双星推力', en: 'Twin Burn' },
+  'game.subtitle': { zh: '两艘船，一箱油', en: 'Two ships. One tank.' },
+
+  'home.tagline': { zh: '一个油箱，两份预算', en: 'One tank, two budgets' },
+  'home.play': { zh: '开 始', en: 'LAUNCH' },
+  'home.continue': { zh: '继续第 {n} 关', en: 'Resume Level {n}' },
+  'home.rules': { zh: '玩法', en: 'Rules' },
+  'home.about': { zh: '关于', en: 'About' },
+  'home.lang': { zh: 'EN', en: '中' },
+  'home.level': { zh: '关卡', en: 'Level' },
+  'home.level.n': { zh: '第 {n} 关', en: 'Level {n}' },
+  'home.best': { zh: '最高分 {n}', en: 'Best {n}' },
+  'home.cleared': { zh: '已通关 {n}/{m}', en: 'Cleared {n}/{m}' },
+  'home.stats.runs': { zh: '出手 {n} 次', en: 'Launches {n}' },
+  'home.stats.none': { zh: '还没有成绩', en: 'No runs yet' },
+  'home.theme': { zh: '主题', en: 'Theme' },
+  'home.select': { zh: '选择关卡', en: 'Select level' },
+  'home.locked': { zh: '先过上一关', en: 'Finish the previous level first' },
+
+  'hud.fuel': { zh: '燃料', en: 'FUEL' },
+  'hud.level': { zh: '第 {n} 关', en: 'LEVEL {n}' },
+  'hud.low': { zh: '燃料不足', en: 'LOW FUEL' },
+  'hud.pause': { zh: '暂停', en: 'Pause' },
+  'hud.docked': { zh: '已入港 {n}/{m}', en: 'Docked {n}/{m}' },
+
+  'play.hint.pull': { zh: '按住屏幕 → 最近的船被拉向手指', en: 'Hold the screen - the nearest ship is pulled to your finger' },
+  'play.hint.two': { zh: '两根手指可以同时开两条船', en: 'Two fingers fly both ships at once' },
+  'play.hint.brake': { zh: '松手不会停：提前松手靠惯性入港', en: 'Releasing never brakes - coast in early' },
+  'play.hint.soft': { zh: '轻触入港（低速）得精确对接奖励', en: 'Dock slow for a precision bonus' },
+  'play.paused': { zh: '已暂停', en: 'Paused' },
+  'play.resume': { zh: '继续', en: 'Resume' },
+  'play.restart': { zh: '重开本关', en: 'Restart level' },
+  'play.quit': { zh: '退出到首页', en: 'Quit to home' },
+  'play.quit.hint': { zh: '本关进度不会保存', en: 'Level progress will not be saved' },
+
+  'brief.level': { zh: '第 {n} 关', en: 'LEVEL {n}' },
+  'brief.go': { zh: '出发', en: 'GO' },
+  'brief.tap': { zh: '点击开始', en: 'Tap to start' },
+
+  'result.clear': { zh: '入港成功', en: 'DOCKED' },
+  'result.crash': { zh: '船体损毁', en: 'HULL LOST' },
+  'result.fuelout': { zh: '燃料耗尽', en: 'TANK DRY' },
+  'result.campaign': { zh: '战役完成', en: 'CAMPAIGN COMPLETE' },
+  'result.reason.crash': { zh: '一艘船撞上了小行星', en: 'A ship hit an asteroid' },
+  'result.reason.fuel': { zh: '还有船没入港，油先烧完了', en: 'The tank ran dry with a ship still out' },
+  'result.reason.docked': { zh: '两艘船全部入港', en: 'Both ships are home' },
+  'result.score': { zh: '本关得分', en: 'LEVEL SCORE' },
+  'result.total': { zh: '总分', en: 'TOTAL' },
+  'result.level': { zh: '第 {n} 关', en: 'Level {n}' },
+  'result.of': { zh: '{n}/{m}', en: '{n}/{m}' },
+  'result.stat.fuel': { zh: '剩余燃料', en: 'Fuel left' },
+  'result.stat.time': { zh: '用时', en: 'Time' },
+  'result.stat.cells': { zh: '拾取油桶', en: 'Fuel cells' },
+  'result.stat.dock': { zh: '精确对接', en: 'Precision docks' },
+  'result.stat.perfect': { zh: '精确对接 {n}/{m}', en: '{n}/{m} precision' },
+  'result.best': { zh: '历史最佳 {n}', en: 'Best ever {n}' },
+  'result.newbest': { zh: '新纪录！', en: 'NEW RECORD!' },
+  'result.retry': { zh: '再试一次', en: 'RETRY' },
+  'result.next': { zh: '下一关', en: 'NEXT LEVEL' },
+  'result.restart': { zh: '从第 1 关重来', en: 'RESTART CAMPAIGN' },
+  'result.home': { zh: '返回首页', en: 'Home' },
+  'result.stars': { zh: '本关评级', en: 'Rating' },
+  'result.runs': { zh: '出手 {n} 次', en: 'Launches {n}' },
+
+  'rules.title': { zh: '玩法说明', en: 'How to Play' },
+  'rules.goal.h': { zh: '目标', en: 'Goal' },
+  'rules.goal.b': { zh: '两艘船共用一箱燃料。在烧完之前，把两艘都送进各自的对接口。', en: 'Two ships share one tank of fuel. Dock both before it runs dry.' },
+  'rules.hold.h': { zh: '牵引', en: 'Tractor pull' },
+  'rules.hold.b': { zh: '按住屏幕，最近的船会被拉向手指；两根手指可同时开两条船，松手不会刹车。', en: 'Hold the screen and the nearest ship is pulled toward your finger. Two fingers fly both at once, and releasing never brakes.' },
+  'rules.tank.h': { zh: '一箱油', en: 'One tank' },
+  'rules.tank.b': { zh: '推力烧油，油箱本身也在缓慢漏油。两艘船同时点火，油耗就是双份。', en: 'Thrust burns fuel and the tank leaks on its own. Fly both ships together and it burns twice as fast.' },
+  'rules.hazard.h': { zh: '小行星与引力井', en: 'Rocks and wells' },
+  'rules.hazard.b': { zh: '碰到小行星即船毁，巡逻的还要看准时机。引力井越靠近井心拉力越强——可以借力，也可以绕开。', en: 'A rock destroys a hull on contact, and patrols need timing. Gravity wells pull hardest at the core - slingshot around one, or steer clear.' },
+  'rules.dock.h': { zh: '对接口与油桶', en: 'Docks and cells' },
+  'rules.dock.b': { zh: '飞进自己的对接口即入港，低速入港还有精确对接奖励。绿色油桶可以补油。', en: 'Fly into your own dock to land; a slow arrival earns a precision bonus. Green cells top the tank back up.' },
+  'rules.tip': { zh: '提示：让一艘船滑行，先送另一艘——只是别忘了它还在动。', en: 'Tip: let one ship coast while you fly the other - just remember it is still moving.' },
+  'rules.back': { zh: '返 回', en: 'BACK' },
+
+  'about.title': { zh: '关于', en: 'About' },
+  'about.version': { zh: '版本 {v}', en: 'Version {v}' },
+  'about.original.h': { zh: '原创声明', en: 'Original work' },
+  'about.original.b': { zh: '本游戏的玩法规则、代码、界面与音效均为独立创作：运动与碰撞判定基于公开的牛顿力学与引力衰减原理自行实现，全部画面由 Canvas 实时绘制，音效由 Web Audio 实时合成，未使用任何第三方美术、音频或代码素材。', en: 'Game rules, code, interface and audio are independently created. Motion and collision use the publicly known principles of Newtonian motion and inverse gravity falloff, implemented from scratch; all visuals are drawn live on Canvas and all sound is synthesised with Web Audio. No third-party art, audio or code is used.' },
+  'about.offline.h': { zh: '离线可玩', en: 'Plays offline' },
+  'about.offline.b': { zh: '本包为单机版本，不含任何联网功能，全部进度保存在本机。', en: 'This is a single-player build with no networking of any kind; all progress stays on this device.' },
+  'about.save.h': { zh: '本地数据', en: 'Local data' },
+  'about.save.b': { zh: '仅保存语言、主题、最高分与已通关进度，占用极小，可在下方清空。', en: 'Only language, theme, best score and cleared-level progress are stored. Wipe them below.' },
+  'about.wipe': { zh: '清空本地数据', en: 'Erase local data' },
+  'about.wiped': { zh: '已清空', en: 'Erased' },
+  'about.back': { zh: '返 回', en: 'BACK' },
+
+  'agree.title': { zh: '用户协议', en: 'User Agreement' },
+  'agree.body1': { zh: '欢迎游玩《双星推力》。本游戏为单机休闲作品，不设账号、不含内购，也不收集任何个人信息。', en: 'Welcome to Twin Burn. This is an offline casual game: no accounts, no in-app purchases, and no personal information is collected.' },
+  'agree.body2': { zh: '游戏进度、语言与主题偏好仅保存在你的设备本地，卸载后即被清除。', en: 'Progress, language and theme preferences are stored only on your device and are removed when the app is uninstalled.' },
+  'agree.body3': { zh: '游戏中的全部美术、音效、文案与代码均为原创，受著作权保护，请勿擅自提取或再分发。', en: 'All art, audio, text and code in this game are original works protected by copyright. Please do not extract or redistribute them.' },
+  'agree.body4': { zh: '请合理安排游戏时间，注意休息。', en: 'Please play in moderation and take regular breaks.' },
+  'agree.ok': { zh: '同 意', en: 'AGREE' },
+
+  'ship.a': { zh: 'A 舰', en: 'Ship A' },
+  'ship.b': { zh: 'B 舰', en: 'Ship B' },
+  'ship.both': { zh: '两艘船', en: 'Both ships' },
+
+  'a11y.lang': { zh: '切换语言', en: 'Switch language' },
+  'a11y.sound': { zh: '开关声音', en: 'Toggle sound' },
+
+  'unit.sec': { zh: '{n} 秒', en: '{n}s' },
+  'unit.percent': { zh: '{n}%', en: '{n}%' },
+  'unit.fuel': { zh: '燃料 {n}', en: 'Fuel {n}' }
+};
+
+var LANGS = cfgGet('locale.supported', ['zh', 'en']);
+var FALLBACK_LANG = cfgGet('locale.fallback', 'en');
+/* English is the default interface, not merely the fallback: the package opens in
+   English for everyone and only changes when a player picks a language. Set
+   locale.followSystem = true in game_config.json to start zh devices in Chinese. */
+var FOLLOW_SYSTEM = cfgGet('locale.followSystem', false) === true;
+var _lang = null;
+
+function detectLang() {
+  if (!FOLLOW_SYSTEM) return FALLBACK_LANG;
+  var tag = '';
+  try { tag = String((window.navigator && (window.navigator.language || window.navigator.userLanguage)) || ''); } catch (e) { tag = ''; }
+  if (/^zh\b/i.test(tag)) return LANGS.indexOf('zh') >= 0 ? 'zh' : FALLBACK_LANG;
+  /* Any locale we do not localise falls back to English, as the platform requires. */
+  return FALLBACK_LANG;
+}
+
+function getLang() {
+  if (_lang && LANGS.indexOf(_lang) >= 0) return _lang;
+  var saved = STORE.get('lang', '');
+  if (typeof saved === 'string' && LANGS.indexOf(saved) >= 0) return saved;
+  return detectLang();
+}
+
+function setLang(lang) {
+  if (LANGS.indexOf(lang) < 0) return false;
+  _lang = lang;
+  STORE.set('lang', lang);
+  try {
+    var title = tr('game.title');
+    if (document && document.title !== undefined) document.title = title;
+  } catch (e) { /* no document: ignore */ }
+  return true;
+}
+
+/* Lookup never throws: a missing key echoes itself so a gap cannot blank the UI. */
+function tr(key, vars) {
+  var entry = DICT[key];
+  var lang = getLang();
+  var text;
+  if (!entry) text = key;
+  else text = entry[lang] || entry[FALLBACK_LANG] || entry.zh || key;
+  return vars ? fmt(text, vars) : text;
+}
+
+/* Level and theme names live in game_config.json (operational content belongs with
+   the other tunables), so they are resolved through the same locale rules. */
+function pickLocale(obj, dflt) {
+  if (obj === null || obj === undefined) return dflt;
+  if (typeof obj === 'string') return obj;
+  var lang = getLang();
+  return obj[lang] || obj[FALLBACK_LANG] || obj.en || obj.zh || dflt;
+}
+
+
+/* ===== 03-assets.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §3  ASSETS — window.lib.getAsset(assetId) pipeline with local fallbacks
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Mirrors asset_map.json (ids are the contract; the map file is the auditable copy).
+   Binary payload shipped: the store icon, the store cover and one grain texture.
+   Everything else the game shows is generated procedurally, so it has no url. */
+var ASSET_IDS = {
+  icon: { url: 'icon.png', type: 'image' },
+  poster: { url: 'cover/poster.jpg', type: 'image' },
+  grain: { url: 'assets/grain.png', type: 'image' },
+  ship_set: { url: null, type: 'image' },
+  rock_set: { url: null, type: 'image' },
+  well_skin: { url: null, type: 'image' },
+  fx_thrust: { url: null, type: 'animation' },
+  fx_crash: { url: null, type: 'animation' },
+  sfx_thrust: { url: null, type: 'audio' },
+  sfx_dock: { url: null, type: 'audio' },
+  sfx_crash: { url: null, type: 'audio' }
+};
+
+var ASSETS = {
+  images: {},          /* id -> HTMLImageElement (only when actually usable) */
+  resolved: {},        /* id -> 'host' | 'local' | 'procedural' | 'missing' */
+  requested: [],       /* every id the game asked for */
+  calls: [],           /* ids handed to window.lib.getAsset (empty without the host API) */
+  host: !!(window.lib && typeof window.lib.getAsset === 'function'),
+  ready: null
+};
+
+/* The host API is deliberately unspecified beyond its name, so accept whatever
+   shape it returns: a promise, a URL string, a descriptor or a live element. */
+function hostGetAsset(id) {
+  ASSETS.calls.push(id);
+  try {
+    if (!window.lib || typeof window.lib.getAsset !== 'function') return null;
+    return window.lib.getAsset(id);
+  } catch (e) {
+    return null;
+  }
+}
+
+function loadImageUrl(url) {
+  return new Promise(function (resolve) {
+    if (!url) { resolve(null); return; }
+    var img = new Image();
+    /* Only remote (cross-origin) sources need the anonymous flag; setting it on a
+       relative url can break a plain file:// load, so it is conditional. */
+    if (/^https?:/i.test(url)) img.crossOrigin = 'anonymous';
+    img.onload = function () { resolve(img); };
+    img.onerror = function () { resolve(null); };
+    img.src = url;
+  });
+}
+
+function imageFromValue(value) {
+  return new Promise(function (resolve) {
+    if (!value) { resolve(null); return; }
+    if (typeof value === 'string') { loadImageUrl(value).then(resolve); return; }
+    if (typeof value.then === 'function') {
+      value.then(function (v) { imageFromValue(v).then(resolve); }, function () { resolve(null); });
+      return;
+    }
+    if (typeof Image !== 'undefined' && value instanceof Image) { resolve(value); return; }
+    if (value.image && typeof value.image === 'object') { imageFromValue(value.image).then(resolve); return; }
+    if (typeof value.src === 'string') { loadImageUrl(value.src).then(resolve); return; }
+    if (typeof value.url === 'string') { loadImageUrl(value.url).then(resolve); return; }
+    if (typeof value.path === 'string') { loadImageUrl(value.path).then(resolve); return; }
+    resolve(null);
+  });
+}
+
+function requestAsset(id) {
+  var spec = ASSET_IDS[id] || {};
+  ASSETS.requested.push(id);
+  var viaHost = null;
+  if (ASSETS.host) {
+    var raw = hostGetAsset(id);
+    if (raw !== null && raw !== undefined) {
+      viaHost = imageFromValue(raw).then(function (img) { return img ? { img: img, from: 'host' } : null; });
+    }
+  }
+  var chain = viaHost || Promise.resolve(null);
+  return chain.then(function (hit) {
+    if (hit) return hit;
+    return loadImageUrl(spec.url).then(function (img) { return img ? { img: img, from: 'local' } : null; });
+  }).then(function (hit) {
+    if (hit) {
+      ASSETS.images[id] = hit.img;
+      ASSETS.resolved[id] = hit.from;
+    } else {
+      ASSETS.resolved[id] = spec.url ? 'missing' : 'procedural';
+    }
+    return ASSETS.images[id] || null;
+  });
+}
+
+/* Every declared asset is requested through the platform API at boot, so the
+   documented call happens for the whole manifest - not just the files we ship. */
+function loadAssets() {
+  var ids = [];
+  for (var k in ASSET_IDS) { if (Object.prototype.hasOwnProperty.call(ASSET_IDS, k)) ids.push(k); }
+  ASSETS.ready = Promise.all(ids.map(requestAsset));
+  return ASSETS.ready;
+}
+
+function assetImage(id) { return ASSETS.images[id] || null; }
+
+
+/* ===== 04-theme.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §4  THEME — the palettes are data, not code
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var THEMES = cfgGet('themes', []);
+var DEFAULT_THEME = cfgGet('defaultTheme', 'deepfield');
+var _themeId = null;
+
+function themeIds() {
+  var out = [];
+  for (var i = 0; i < THEMES.length; i += 1) out.push(THEMES[i].id);
+  return out;
+}
+
+function getThemeId() {
+  if (_themeId) return _themeId;
+  var saved = STORE.get('theme', '');
+  if (typeof saved === 'string' && themeIds().indexOf(saved) >= 0) return saved;
+  return DEFAULT_THEME;
+}
+
+function setThemeId(id) {
+  if (themeIds().indexOf(id) < 0) return false;
+  _themeId = id;
+  STORE.set('theme', id);
+  return true;
+}
+
+function T() {
+  var id = getThemeId();
+  for (var i = 0; i < THEMES.length; i += 1) { if (THEMES[i].id === id) return THEMES[i]; }
+  return THEMES[0];
+}
+
+/* Ship palettes come from the active theme, but the SHAPE cue stays fixed: ship 0
+   always flies the ring-marked hull, ship 1 the chevron hull, so the two are
+   tellable apart without relying on colour. */
+function shipColor(i) {
+  var t = T();
+  var set = (i % 2 === 0) ? t.shipA : t.shipB;
+  return set[0];
+}
+function shipDark(i) {
+  var t = T();
+  var set = (i % 2 === 0) ? t.shipA : t.shipB;
+  return set[1];
+}
+function shipLight(i) {
+  var t = T();
+  var set = (i % 2 === 0) ? t.shipA : t.shipB;
+  return set[2];
+}
+function shipLabel(i) { return tr(i % 2 === 0 ? 'ship.a' : 'ship.b'); }
+function gateShape(i) { return (i % 2 === 0) ? 'ring' : 'tri'; }
+
+function themeName(theme) {
+  if (!theme) return '';
+  return pickLocale(theme.name, theme.id);
+}
+
+function levelName(def) { return def ? pickLocale(def.name, def.id) : ''; }
+function levelTeach(def) { return def ? pickLocale(def.teach, '') : ''; }
+
+
+/* ===== 05-audio.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §5  AUDIO — every sound is synthesised with Web Audio, so no wav/ogg ships.
+        The engine note is one long-lived voice whose gain follows the actual
+        thrust level, which is what makes the tank feel like it is draining.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var SFX = (function () {
+  var ctx = null;
+  var master = null;
+  var enabled = cfgGet('audio.enabled', true);
+  var volume = cfgGet('audio.masterVolume', 0.42);
+  var engine = null;          /* { osc, osc2, filter, gain } */
+  var engineLevel = 0;
+
+  function ac() {
+    if (!enabled) return null;
+    try {
+      if (!ctx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC();
+        master = ctx.createGain();
+        master.gain.value = volume;
+        master.connect(ctx.destination);
+      }
+      /* WebViews may start the context suspended until the first interaction. */
+      if (ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (e) { /* retried on next gesture */ } }
+      return ctx;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function tone(opts) {
+    var c = ac();
+    if (!c) return;
+    try {
+      var t0 = c.currentTime + (opts.delay || 0);
+      var dur = opts.dur || 0.12;
+      var osc = c.createOscillator();
+      var gain = c.createGain();
+      osc.type = opts.type || 'triangle';
+      osc.frequency.setValueAtTime(opts.freq, t0);
+      if (opts.to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, opts.to), t0 + dur);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, opts.gain || 0.3), t0 + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      var node = osc;
+      if (opts.q) {
+        var bp = c.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = opts.band || opts.freq;
+        bp.Q.value = opts.q;
+        osc.connect(bp);
+        node = bp;
+      }
+      node.connect(gain);
+      gain.connect(master);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
+    } catch (e) { /* audio is never allowed to break gameplay */ }
+  }
+
+  function noise(opts) {
+    var c = ac();
+    if (!c) return;
+    try {
+      var t0 = c.currentTime + (opts.delay || 0);
+      var dur = opts.dur || 0.08;
+      var len = Math.max(1, Math.floor(c.sampleRate * dur));
+      var buf = c.createBuffer(1, len, c.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < len; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      var src = c.createBufferSource();
+      src.buffer = buf;
+      var f = c.createBiquadFilter();
+      f.type = opts.filter || 'highpass';
+      f.frequency.value = opts.freq || 900;
+      var g = c.createGain();
+      g.gain.value = opts.gain || 0.12;
+      src.connect(f); f.connect(g); g.connect(master);
+      src.start(t0);
+    } catch (e) { /* ignore */ }
+  }
+
+  /* ── engine: a two-oscillator drone held open for the whole session ─────── */
+  function ensureEngine() {
+    var c = ac();
+    if (!c) return null;
+    if (engine) return engine;
+    try {
+      var osc = c.createOscillator();
+      var osc2 = c.createOscillator();
+      var filter = c.createBiquadFilter();
+      var gain = c.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = 74;
+      osc2.type = 'square';
+      osc2.frequency.value = 37;
+      filter.type = 'lowpass';
+      filter.frequency.value = 620;
+      filter.Q.value = 1.4;
+      gain.gain.value = 0.0001;
+      osc.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(master);
+      osc.start();
+      osc2.start();
+      engine = { osc: osc, osc2: osc2, filter: filter, gain: gain };
+    } catch (e) { engine = null; }
+    return engine;
+  }
+
+  /** level 0..1 — how hard the thrusters are firing across both ships. */
+  function setEngine(level) {
+    if (!enabled) { engineLevel = 0; return; }
+    engineLevel = Math.max(0, Math.min(1, level));
+    var c = ac();
+    if (!c) return;
+    var e = ensureEngine();
+    if (!e) return;
+    try {
+      var target = engineLevel <= 0.001 ? 0.0001 : (cfgGet('audio.thrustVolume', 0.17) * engineLevel + 0.0015);
+      var now = c.currentTime;
+      e.gain.gain.cancelScheduledValues(now);
+      e.gain.gain.setTargetAtTime(target, now, 0.05);
+      e.filter.frequency.setTargetAtTime(430 + 320 * engineLevel, now, 0.08);
+      e.osc.frequency.setTargetAtTime(66 + 26 * engineLevel, now, 0.08);
+    } catch (err) { /* ignore */ }
+  }
+
+  return {
+    /* one voice per ship leaving the pad */
+    launch: function (index) {
+      tone({ type: 'triangle', freq: 320 + (index || 0) * 60, to: 620, dur: 0.16, gain: 0.20 });
+      noise({ dur: 0.12, freq: 900, gain: 0.09 });
+    },
+    wall: function (strength) {
+      var g = 0.06 + Math.min(0.16, (strength || 0) / 1400);
+      tone({ type: 'sine', freq: 150, to: 92, dur: 0.10, gain: g });
+      noise({ dur: 0.05, freq: 1800, gain: g * 0.7 });
+    },
+    dock: function (precise) {
+      var notes = precise ? [523, 659, 784, 1046, 1318] : [523, 659, 784];
+      for (var i = 0; i < notes.length; i += 1) {
+        tone({ type: 'triangle', freq: notes[i], dur: 0.22, gain: 0.20, delay: i * 0.08 });
+      }
+      if (precise) tone({ type: 'sine', freq: 2093, dur: 0.3, gain: 0.10, delay: 0.34 });
+    },
+    cell: function () {
+      tone({ type: 'sine', freq: 880, to: 1320, dur: 0.10, gain: 0.16 });
+    },
+    crash: function () {
+      tone({ type: 'sine', freq: 90, to: 45, dur: 0.35, gain: 0.30 });
+      noise({ dur: 0.25, freq: 400, gain: 0.22 });
+    },
+    fuelOut: function () {
+      tone({ type: 'square', freq: 220, to: 110, dur: 0.40, gain: 0.16 });
+      tone({ type: 'sine', freq: 165, to: 82, dur: 0.50, gain: 0.14, delay: 0.10 });
+    },
+    lowFuel: function () {
+      tone({ type: 'sine', freq: 62, dur: 0.12, gain: 0.16 });
+      tone({ type: 'sine', freq: 62, dur: 0.12, gain: 0.11, delay: 0.22 });
+    },
+    win: function () {
+      var notes = [523, 659, 784, 1046];
+      for (var i = 0; i < notes.length; i += 1) {
+        tone({ type: 'triangle', freq: notes[i], dur: 0.26, gain: 0.22, delay: i * 0.10 });
+      }
+    },
+    click: function () { tone({ type: 'triangle', freq: 520, dur: 0.05, gain: 0.14 }); },
+    /* Called from the first pointer event so the context can start. */
+    unlock: function () { ac(); setEngine(engineLevel); },
+    setEnabled: function (v) {
+      enabled = !!v;
+      if (!enabled) setEngine(0);
+    },
+    isEnabled: function () { return enabled; },
+    /* The scene drives the engine drone directly: level 0..1 across both ships. */
+    setEngine: setEngine,
+    engineLevel: function () { return engineLevel; }
+  };
+})();
+
+
+/* ===== 06-physics.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §6  PHYSICS — motion, gravity wells, collisions and the win/lose rules.
+        Everything here is a PURE function of (world, input, dt): no DOM, no
+        audio, no Math.random in any judged path. The scene layer turns the
+        returned event list into particles and sound, and the test harness
+        replays the same functions to soak the rules.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── arena geometry ─────────────────────────────────────────────────────── */
+/* Levels store normalised (0..1) coordinates, so the same level definition
+   works on a notched phone and on a desktop window without leaving the safe
+   area. This maps them into the live play field. */
+function arenaRect() {
+  var top = LAY.contentTop + cfgGet('arena.hudHeight', 46) + cfgGet('arena.levelInsetTop', 6);
+  var bottom = LAY.contentBottom - cfgGet('arena.hintHeight', 26) - cfgGet('arena.levelInsetBottom', 6);
+  var left = LAY.contentLeft;
+  var right = LAY.contentRight;
+  return {
+    x: left, y: top, w: right - left, h: bottom - top,
+    cx: (left + right) / 2, cy: (top + bottom) / 2
+  };
+}
+
+function normToArena(rect, n) {
+  if (!n) return { x: rect.cx, y: rect.cy };
+  return { x: rect.x + Number(n[0]) * rect.w, y: rect.y + Number(n[1]) * rect.h };
+}
+
+function levelDef(index) {
+  var levels = cfgGet('levels', []);
+  for (var i = 0; i < levels.length; i += 1) {
+    if (Number(levels[i].index) === Number(index)) return levels[i];
+  }
+  return levels[0] || null;
+}
+
+function levelCount() { return (cfgGet('levels', []) || []).length; }
+
+/* Deterministic rock silhouettes: one PNRG stream per rock, so a level always
+   looks and collides the same way on every device and every replay. */
+function rockVerts(seed, id) {
+  var rnd = mulberry32((seed + (id + 1) * 7919) >>> 0);
+  var n = 9 + Math.floor(rnd() * 3);
+  var out = [];
+  for (var i = 0; i < n; i += 1) out.push(0.86 + rnd() * 0.20);
+  return out;
+}
+
+/* ── world construction ─────────────────────────────────────────────────── */
+/* A fresh world is built from the level definition plus a seed. Nothing is
+   carried over from a previous attempt: this is the single reset point the
+   platform spec asks for ("restart must fully reinitialise the level"). */
+function buildWorld(index, seed, rect) {
+  var def = levelDef(index);
+  var r = rect || arenaRect();
+  var phys = cfgGet('physics', {});
+  var shipR = phys.shipRadius || 7;
+  var dockR = phys.dockRadius || 23;
+  var ships = [];
+  var gates = [];
+  var rocks = [];
+  var wells = [];
+  var cells = [];
+  var i;
+
+  for (i = 0; i < def.ships.length; i += 1) {
+    var sp = normToArena(r, def.ships[i].n);
+    var gt = normToArena(r, def.ships[i].gate);
+    ships.push({
+      id: i, x: sp.x, y: sp.y, vx: 0, vy: 0, r: shipR,
+      alive: true, docked: false, precise: false, ramp: 0, thrustOn: false, trail: []
+    });
+    gates.push({
+      id: i, x: gt.x, y: gt.y, r: dockR, shipId: i,
+      shape: i === 0 ? 'ring' : 'tri', t: 0, flash: 0
+    });
+  }
+
+  var rockDefs = def.rocks || [];
+  for (i = 0; i < rockDefs.length; i += 1) {
+    var o = normToArena(r, rockDefs[i].n);
+    var rock = {
+      id: i, r: Number(rockDefs[i].r) || 16,
+      verts: rockVerts(seed, i), rot: 0, hitR: (Number(rockDefs[i].r) || 16) * 0.95,
+      ax: o.x, ay: o.y, bx: o.x, by: o.y, len: 0, speed: 0, off: 0, x: o.x, y: o.y
+    };
+    if (rockDefs[i].path) {
+      var b = normToArena(r, rockDefs[i].path.to);
+      var dx = b.x - o.x, dy = b.y - o.y;
+      rock.bx = b.x; rock.by = b.y;
+      rock.len = Math.sqrt(dx * dx + dy * dy);
+      rock.speed = Number(rockDefs[i].path.speed) || 30;
+      /* Rock phase is seeded so patrols are never in lockstep with each other. */
+      rock.off = mulberry32((seed + (i + 1) * 104729) >>> 0)() * rock.len * 2;
+    }
+    var spinRange = (phys.rockSpinMax || 0.9) - (phys.rockSpinMin || 0.25);
+    rock.spin = ((phys.rockSpinMin || 0.25) + mulberry32((seed + (i + 1) * 15485863) >>> 0)() * spinRange) *
+      (mulberry32((seed + (i + 1) * 32452843) >>> 0)() < 0.5 ? -1 : 1);
+    if (!rockDefs[i].path) rock.spin *= 0.25;   /* static rocks barely turn */
+    rocks.push(rock);
+  }
+
+  var wellDefs = def.wells || [];
+  for (i = 0; i < wellDefs.length; i += 1) {
+    var w = normToArena(r, wellDefs[i].n);
+    wells.push({ id: i, x: w.x, y: w.y, r: Number(wellDefs[i].r) || 80, pull: Number(wellDefs[i].pull) || 40 });
+  }
+
+  var cellDefs = def.cells || [];
+  for (i = 0; i < cellDefs.length; i += 1) {
+    var c = normToArena(r, cellDefs[i]);
+    cells.push({ id: i, x: c.x, y: c.y, r: 11, taken: false, t: 0 });
+  }
+
+  var fuelMax = Number(def.fuel) || 80;
+  return {
+    level: Number(def.index) || index,
+    def: def, rect: r, seed: seed >>> 0,
+    ships: ships, gates: gates, rocks: rocks, wells: wells, cells: cells,
+    fuel: fuelMax, fuelMax: fuelMax, t: 0,
+    status: 'playing', reason: '',
+    softDocks: 0, cellsTaken: 0, crashes: 0, wallHits: 0,
+    events: [], particles: []
+  };
+}
+
+/* ── input assignment ───────────────────────────────────────────────────── */
+/* Two thumbs, two ships. Each live pointer drives the nearest alive ship, but
+   an established pairing is sticky: a ship only changes hands when another
+   pointer is clearly closer (hysteresis), which stops the assignment from
+   flickering mid-flight while the player's fingers drift. */
+function pointerDist2(ship, p) {
+  var dx = ship.x - p.x, dy = ship.y - p.y;
+  return dx * dx + dy * dy;
+}
+
+function shipIsClaimable(ship) { return !!(ship.alive && !ship.docked); }
+
+function findPointer(pointers, id) {
+  for (var i = 0; i < pointers.length; i += 1) {
+    if (pointers[i].id === id) return pointers[i];
+  }
+  return null;
+}
+
+function assignPointers(ships, pointers, prev, hysteresis) {
+  var n = ships.length;
+  var assign = [];
+  var dists = [];
+  var i, j;
+
+  for (i = 0; i < n; i += 1) { assign.push(null); dists.push(Infinity); }
+
+  /* 1. sticky pass — keep last frame's pairing while the pointer is still the
+        sensible owner of that ship. */
+  if (prev && prev.shipPointer) {
+    for (i = 0; i < n; i += 1) {
+      var pid = prev.shipPointer[i];
+      if (pid === null || pid === undefined) continue;
+      if (!shipIsClaimable(ships[i])) continue;
+      var p = findPointer(pointers, pid);
+      if (!p) continue;
+      var d = Math.sqrt(pointerDist2(ships[i], p));
+      var was = (prev.dist && isFinite(prev.dist[i])) ? prev.dist[i] : 0;
+      if (assigned(assign, pid)) continue;
+      if (d <= was + hysteresis) { assign[i] = pid; dists[i] = d; }
+    }
+  }
+
+  /* 2. greedy pass — repeatedly take the globally closest free pointer/ship
+        pair so the result never depends on array order. */
+  var guard = 0;
+  while (guard < n * pointers.length + n) {
+    guard += 1;
+    var bestShip = -1, bestPtr = null, bestD = Infinity;
+    for (i = 0; i < n; i += 1) {
+      if (assign[i] !== null || !shipIsClaimable(ships[i])) continue;
+      for (j = 0; j < pointers.length; j += 1) {
+        if (assigned(assign, pointers[j].id)) continue;
+        var dd = pointerDist2(ships[i], pointers[j]);
+        if (dd < bestD) { bestD = dd; bestShip = i; bestPtr = pointers[j].id; }
+      }
+    }
+    if (bestShip < 0) break;
+    assign[bestShip] = bestPtr;
+    dists[bestShip] = Math.sqrt(bestD);
+  }
+
+  var aims = [];
+  for (i = 0; i < n; i += 1) {
+    var pt = assign[i] === null ? null : findPointer(pointers, assign[i]);
+    aims.push(pt ? { x: pt.x, y: pt.y } : null);
+  }
+  return { aims: aims, shipPointer: assign, dist: dists };
+}
+
+function assigned(assign, pid) {
+  for (var i = 0; i < assign.length; i += 1) { if (assign[i] === pid) return true; }
+  return false;
+}
+
+/* ── one simulation step ────────────────────────────────────────────────── */
+/* `aims[i]` is the arena-space point ship i is being pulled toward, or null.
+   Returns nothing; mutates world and appends to world.events. */
+function stepWorld(world, aims, dt) {
+  if (!(dt > 0)) return world;
+  if (dt > 0.05) dt = 0.05;              /* a stalled frame must not tunnel a ship */
+  var phys = cfgGet('physics', {});
+  var thrust = phys.thrust || 232;
+  var maxSpeed = phys.maxSpeed || 196;
+  var drag = phys.dragPerSec || 0.055;
+  var burn = phys.burnPerSec || 2.6;
+  var idle = phys.burnIdlePerSec || 0.08;
+  var rampSec = phys.thrustRampSec || 0.16;
+  var deadZone = phys.deadZonePx || 24;
+  var rest = phys.wallRestitution || 0.52;
+  var r = world.rect;
+  var i, k;
+
+  world.t += dt;
+  world.events.length = 0;
+
+  /* rocks patrol first so collisions are tested against where they are now */
+  for (i = 0; i < world.rocks.length; i += 1) {
+    var rock = world.rocks[i];
+    rock.rot += rock.spin * dt;
+    if (rock.len > 0.001) {
+      var span = rock.len * 2;
+      var prog = (world.t * rock.speed + rock.off) % span;
+      if (prog < 0) prog += span;
+      var d = prog <= rock.len ? prog : span - prog;
+      var u = d / rock.len;
+      rock.x = rock.ax + (rock.bx - rock.ax) * u;
+      rock.y = rock.ay + (rock.by - rock.ay) * u;
+    }
+  }
+  for (i = 0; i < world.cells.length; i += 1) world.cells[i].t += dt;
+  for (i = 0; i < world.gates.length; i += 1) {
+    world.gates[i].t += dt;
+    if (world.gates[i].flash > 0) world.gates[i].flash -= dt;
+  }
+
+  /* idle leak keeps the fuel bar moving even when the player does nothing */
+  world.fuel -= idle * dt;
+
+  for (i = 0; i < world.ships.length; i += 1) {
+    var s = world.ships[i];
+    if (!s.alive || s.docked) continue;
+    var aim = aims ? aims[i] : null;
+    var pushing = false;
+
+    if (aim && world.fuel > 0) {
+      var dx = aim.x - s.x, dy = aim.y - s.y;
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len > deadZone) {
+        s.ramp = Math.min(1, s.ramp + dt / rampSec);
+        var kf = thrust * s.ramp / len;
+        s.vx += dx * kf * dt;
+        s.vy += dy * kf * dt;
+        world.fuel -= burn * s.ramp * dt;
+        pushing = true;
+      }
+    }
+    if (!pushing) s.ramp = Math.max(0, s.ramp - dt / rampSec * 1.6);
+    s.thrustOn = pushing;
+
+    /* gravity wells: strongest at the core, gone at the rim */
+    for (k = 0; k < world.wells.length; k += 1) {
+      var w = world.wells[k];
+      var wx = w.x - s.x, wy = w.y - s.y;
+      var wd = Math.sqrt(wx * wx + wy * wy);
+      if (wd < w.r && wd > 0.5) {
+        var pullF = w.pull * (1 - wd / w.r) * dt / wd;
+        s.vx += wx * pullF;
+        s.vy += wy * pullF;
+      }
+    }
+
+    var damp = Math.max(0, 1 - drag * dt);
+    s.vx *= damp;
+    s.vy *= damp;
+
+    var speed = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+    if (speed > maxSpeed) {
+      s.vx = s.vx / speed * maxSpeed;
+      s.vy = s.vy / speed * maxSpeed;
+      speed = maxSpeed;
+    }
+
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+
+    /* walls: bounce, and report the hit so the scene can shake the screen */
+    var hitWall = false, wallX = s.x, wallY = s.y, wallSpeed = speed;
+    if (s.x - s.r < r.x) { s.x = r.x + s.r; s.vx = Math.abs(s.vx) * rest; hitWall = true; }
+    else if (s.x + s.r > r.x + r.w) { s.x = r.x + r.w - s.r; s.vx = -Math.abs(s.vx) * rest; hitWall = true; }
+    if (s.y - s.r < r.y) { s.y = r.y + s.r; s.vy = Math.abs(s.vy) * rest; hitWall = true; }
+    else if (s.y + s.r > r.y + r.h) { s.y = r.y + r.h - s.r; s.vy = -Math.abs(s.vy) * rest; hitWall = true; }
+    if (hitWall) {
+      world.wallHits += 1;
+      world.events.push({ type: 'wall', x: wallX, y: wallY, speed: wallSpeed, ship: i });
+    }
+
+    /* motion trail, capped so a long flight cannot grow without bound */
+    var trailMax = cfgGet('anim.trailMax', 22);
+    s.trail.unshift({ x: s.x, y: s.y });
+    if (s.trail.length > trailMax) s.trail.pop();
+  }
+
+  /* ── collisions ── */
+  for (i = 0; i < world.ships.length; i += 1) {
+    var sh = world.ships[i];
+    if (!sh.alive || sh.docked) continue;
+
+    for (k = 0; k < world.rocks.length; k += 1) {
+      var rk = world.rocks[k];
+      var rr = rk.hitR + sh.r;
+      var rdx = sh.x - rk.x, rdy = sh.y - rk.y;
+      if (rdx * rdx + rdy * rdy <= rr * rr) {
+        sh.alive = false;
+        world.crashes += 1;
+        world.events.push({ type: 'crash', x: sh.x, y: sh.y, ship: i, rock: k });
+        break;
+      }
+    }
+    if (!sh.alive) continue;
+
+    var gate = world.gates[i];
+    var gd = Math.sqrt(pointerDist2(sh, gate));
+    if (gd <= gate.r) {
+      /* Read the approach speed BEFORE killing it: a gentle arrival earns the
+         precision bonus, and the bonus is what makes braking worth its fuel. */
+      var dockSpeed = Math.sqrt(sh.vx * sh.vx + sh.vy * sh.vy);
+      sh.precise = dockSpeed <= (phys.dockSoftSpeed || 46);
+      if (sh.precise) world.softDocks += 1;
+      sh.docked = true;
+      sh.vx = 0; sh.vy = 0; sh.thrustOn = false; sh.ramp = 0;
+      gate.flash = cfgGet('anim.dockFlashSec', 0.32);
+      world.events.push({ type: 'dock', x: sh.x, y: sh.y, ship: i, precise: sh.precise, speed: dockSpeed });
+    }
+
+    for (k = 0; k < world.cells.length; k += 1) {
+      var cell = world.cells[k];
+      if (cell.taken) continue;
+      var cd = sh.r + cell.r;
+      var cdx = sh.x - cell.x, cdy = sh.y - cell.y;
+      if (cdx * cdx + cdy * cdy <= cd * cd) {
+        cell.taken = true;
+        world.cellsTaken += 1;
+        world.fuel += cfgGet('scoring.fuelCellAmount', 18);
+        if (world.fuel > world.fuelMax) world.fuel = world.fuelMax;
+        world.events.push({ type: 'cell', x: cell.x, y: cell.y, ship: i });
+      }
+    }
+  }
+
+  if (world.fuel < 0) world.fuel = 0;
+
+  /* ── outcome ── */
+  if (world.status === 'playing') {
+    var crashed = false, allDocked = true;
+    for (i = 0; i < world.ships.length; i += 1) {
+      if (!world.ships[i].alive) crashed = true;
+      if (!world.ships[i].docked) allDocked = false;
+    }
+    if (crashed) {
+      world.status = 'fail';
+      world.reason = 'crash';
+      world.events.push({ type: 'fail', reason: 'crash' });
+    } else if (allDocked) {
+      world.status = 'clear';
+      world.reason = 'docked';
+      world.events.push({ type: 'clear' });
+    } else if (world.fuel <= 0) {
+      world.status = 'fail';
+      world.reason = 'fuel';
+      world.events.push({ type: 'fail', reason: 'fuel' });
+    }
+  }
+  return world;
+}
+
+/* ── results ────────────────────────────────────────────────────────────── */
+function levelScore(world) {
+  var base = world.status === 'clear' ? cfgGet('scoring.levelBase', 400) : 0;
+  var ratio = world.fuelMax > 0 ? world.fuel / world.fuelMax : 0;
+  var fuelPts = world.status === 'clear' ? Math.floor(ratio * cfgGet('scoring.fuelBonus', 600)) : 0;
+  var dockPts = 0;
+  for (var i = 0; i < world.ships.length; i += 1) {
+    if (world.ships[i].docked && world.ships[i].precise) dockPts += cfgGet('scoring.softDockBonus', 150);
+  }
+  var cellPts = world.cellsTaken * cfgGet('scoring.cellBonus', 60);
+  var stars = 0;
+  if (world.status === 'clear') {
+    stars = 1;
+    if (ratio >= cfgGet('scoring.star2Ratio', 0.3)) stars = 2;
+    if (ratio >= cfgGet('scoring.star3Ratio', 0.5)) stars = 3;
+  }
+  return {
+    base: base, fuel: fuelPts, dock: dockPts, cells: cellPts,
+    total: base + fuelPts + dockPts + cellPts, stars: stars,
+    fuelRatio: ratio, fuelLeft: Math.round(world.fuel)
+  };
+}
+
+/* Compact signature of the judged state — used by the soak test to prove that
+   the same seed and the same input sequence always produce the same run. */
+function stateSig(world) {
+  var out = [];
+  for (var i = 0; i < world.ships.length; i += 1) {
+    var s = world.ships[i];
+    out.push(s.x.toFixed(3) + ',' + s.y.toFixed(3) + ',' + s.vx.toFixed(3) + ',' + s.vy.toFixed(3) +
+      (s.alive ? 'A' : '-') + (s.docked ? 'D' : '-'));
+  }
+  out.push('f' + world.fuel.toFixed(3));
+  out.push('s' + world.status);
+  return out.join('|');
+}
+
+/* ── level validation ───────────────────────────────────────────────────── */
+/* Runs in the browser and in the e2e harness: a level that starts a ship
+   inside a rock, or parks a dock outside the field, is a level the player
+   cannot win through skill, and must never ship. */
+function validateLevels() {
+  var problems = [];
+  var rect = { x: 0, y: 0, w: 370, h: 485, cx: 185, cy: 242.5 };
+  var levels = cfgGet('levels', []);
+  if (!levels.length) problems.push('no levels defined');
+  for (var i = 0; i < levels.length; i += 1) {
+    var def = levels[i];
+    var tag = 'level ' + def.index + ' (' + def.id + ')';
+    if (!(Number(def.fuel) > 0)) problems.push(tag + ': fuel must be positive');
+    if (!def.ships || def.ships.length < 2) problems.push(tag + ': needs two ships');
+    var w = buildWorld(def.index, 12345, rect);
+    var k, j;
+    for (k = 0; k < w.gates.length; k += 1) {
+      var g = w.gates[k];
+      if (g.x < rect.x || g.x > rect.x + rect.w || g.y < rect.y || g.y > rect.y + rect.h) {
+        problems.push(tag + ': gate ' + k + ' outside the arena');
+      }
+    }
+    for (k = 0; k < w.ships.length; k += 1) {
+      var s = w.ships[k];
+      if (s.x < rect.x + s.r || s.x > rect.x + rect.w - s.r || s.y < rect.y + s.r || s.y > rect.y + rect.h - s.r) {
+        problems.push(tag + ': ship ' + k + ' starts outside the arena');
+      }
+      for (j = 0; j < w.rocks.length; j += 1) {
+        var rk = w.rocks[j];
+        var need = rk.hitR + s.r + 6;
+        var dx = s.x - rk.x, dy = s.y - rk.y;
+        if (dx * dx + dy * dy < need * need) {
+          problems.push(tag + ': ship ' + k + ' starts overlapping rock ' + j);
+        }
+      }
+      for (j = 0; j < w.gates.length; j += 1) {
+        var gg = w.gates[j];
+        var gdx = s.x - gg.x, gdy = s.y - gg.y;
+        if (gdx * gdx + gdy * gdy < (gg.r + s.r + 4) * (gg.r + s.r + 4)) {
+          problems.push(tag + ': ship ' + k + ' starts already docked at gate ' + j);
+        }
+      }
+    }
+    for (k = 0; k < w.wells.length; k += 1) {
+      if (!(w.wells[k].pull > 0) || !(w.wells[k].r > 0)) problems.push(tag + ': well ' + k + ' has no pull');
+    }
+  }
+  return problems;
+}
+
+/* A deliberately naive autopilot: hold toward the ship's own gate, ignore
+   rocks entirely. Its job is not to play well but to prove the field is
+   traversable — if this cannot reach the dock in the open early levels, the
+   level geometry or the thrust budget is wrong. */
+function autopilotAims(world) {
+  var out = [];
+  for (var i = 0; i < world.ships.length; i += 1) {
+    var s = world.ships[i];
+    if (!s.alive || s.docked) { out.push(null); continue; }
+    var gate = world.gates[i];
+    out.push({ x: gate.x, y: gate.y });
+  }
+  return out;
+}
+
+function simulate(world, seconds, dt, aimFn) {
+  var steps = Math.round(seconds / dt);
+  for (var i = 0; i < steps; i += 1) {
+    if (world.status !== 'playing') break;
+    stepWorld(world, aimFn(world), dt);
+  }
+  return world;
+}
+
+
+/* ===== 09-draw.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §9  DRAW — canvas primitives and the shared visual vocabulary.
+        Everything is drawn live; no bitmap art is required to render a frame.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var FONT_STACK = '"Arial Rounded MT Bold","Baloo 2","Nunito","Segoe UI",system-ui,-apple-system,' +
+  '"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif';
+
+var _grainPattern = null;
+
+function setFont(size, weight) {
+  CTX.font = (weight || '700') + ' ' + Math.round(size * 10) / 10 + 'px ' + FONT_STACK;
+}
+
+function rgba(hex, a) {
+  var h = String(hex).replace('#', '');
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  var n = parseInt(h, 16);
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+
+function roundRectPath(x, y, w, h, r) {
+  var rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  CTX.beginPath();
+  CTX.moveTo(x + rad, y);
+  CTX.lineTo(x + w - rad, y);
+  CTX.quadraticCurveTo(x + w, y, x + w, y + rad);
+  CTX.lineTo(x + w, y + h - rad);
+  CTX.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+  CTX.lineTo(x + rad, y + h);
+  CTX.quadraticCurveTo(x, y + h, x, y + h - rad);
+  CTX.lineTo(x, y + rad);
+  CTX.quadraticCurveTo(x, y, x + rad, y);
+  CTX.closePath();
+}
+
+function roundRectOn(g, x, y, w, h, r) {
+  var rad = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  g.beginPath();
+  g.moveTo(x + rad, y);
+  g.lineTo(x + w - rad, y);
+  g.quadraticCurveTo(x + w, y, x + w, y + rad);
+  g.lineTo(x + w, y + h - rad);
+  g.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+  g.lineTo(x + rad, y + h);
+  g.quadraticCurveTo(x, y + h, x, y + h - rad);
+  g.lineTo(x, y + rad);
+  g.quadraticCurveTo(x, y, x + rad, y);
+  g.closePath();
+}
+
+function fillRR(x, y, w, h, r, fill) {
+  roundRectPath(x, y, w, h, r);
+  CTX.fillStyle = fill;
+  CTX.fill();
+}
+
+function strokeRR(x, y, w, h, r, color, width) {
+  roundRectPath(x, y, w, h, r);
+  CTX.strokeStyle = color;
+  CTX.lineWidth = width;
+  CTX.stroke();
+}
+
+function vGrad(x, y, w, h, top, bottom) {
+  var g = CTX.createLinearGradient(x, y, x, y + h);
+  g.addColorStop(0, top);
+  g.addColorStop(1, bottom);
+  return g;
+}
+
+function withShadow(color, blur, ox, oy, fn) {
+  CTX.save();
+  CTX.shadowColor = color;
+  CTX.shadowBlur = blur;
+  CTX.shadowOffsetX = ox || 0;
+  CTX.shadowOffsetY = oy || 0;
+  fn();
+  CTX.restore();
+}
+
+/** Text with optional gradient fill, outline and shadow. Returns the width used. */
+function TXT(str, x, y, o) {
+  var opts = o || {};
+  var size = opts.size || 16;
+  var weight = opts.weight || '700';
+  var maxW = opts.maxW || 0;
+  setFont(size, weight);
+  var text = String(str);
+  if (maxW > 0) {
+    var w = CTX.measureText(text).width;
+    while (w > maxW && size > 7) {
+      size -= 0.5;
+      setFont(size, weight);
+      w = CTX.measureText(text).width;
+    }
+  }
+  CTX.save();
+  CTX.textAlign = opts.align || 'center';
+  CTX.textBaseline = opts.baseline || 'middle';
+  if (opts.letterSpacing && 'letterSpacing' in CTX) CTX.letterSpacing = opts.letterSpacing;
+  if (opts.alpha !== undefined) CTX.globalAlpha = opts.alpha;
+  if (opts.shadow) {
+    CTX.shadowColor = opts.shadow.color;
+    CTX.shadowBlur = opts.shadow.blur || 0;
+    CTX.shadowOffsetX = opts.shadow.ox || 0;
+    CTX.shadowOffsetY = opts.shadow.oy || 0;
+  }
+  if (opts.outline) {
+    CTX.lineJoin = 'round';
+    CTX.lineCap = 'round';
+    CTX.lineWidth = opts.outline.width || 4;
+    CTX.strokeStyle = opts.outline.color;
+    CTX.strokeText(text, x, y);
+    CTX.shadowColor = 'rgba(0,0,0,0)';
+  }
+  if (opts.grad) {
+    /* A gradient fill needs the text's bounding box, so the glyphs are drawn in
+       left-aligned mode at a computed origin - re-using the current alignment
+       here would centre the run a second time and shift it off the outline. */
+    var tw = CTX.measureText(text).width;
+    var left = CTX.textAlign === 'center' ? x - tw / 2 : (CTX.textAlign === 'right' ? x - tw : x);
+    var g = CTX.createLinearGradient(0, y - size * 0.62, 0, y + size * 0.58);
+    g.addColorStop(0, opts.grad[0]);
+    g.addColorStop(1, opts.grad[1]);
+    CTX.fillStyle = g;
+    CTX.textAlign = 'left';
+    CTX.fillText(text, left, y);
+  } else {
+    CTX.fillStyle = opts.color || '#000';
+    CTX.fillText(text, x, y);
+  }
+  var used = CTX.measureText(text).width;
+  CTX.restore();
+  return used;
+}
+
+/** Four-point spark, drawn as two crossed tapered shapes. */
+function drawSpark(x, y, size, color, alpha) {
+  CTX.save();
+  CTX.globalAlpha = alpha === undefined ? 1 : alpha;
+  CTX.translate(x, y);
+  CTX.fillStyle = color;
+  CTX.beginPath();
+  CTX.moveTo(0, -size);
+  CTX.quadraticCurveTo(size * 0.16, -size * 0.16, size, 0);
+  CTX.quadraticCurveTo(size * 0.16, size * 0.16, 0, size);
+  CTX.quadraticCurveTo(-size * 0.16, size * 0.16, -size, 0);
+  CTX.quadraticCurveTo(-size * 0.16, -size * 0.16, 0, -size);
+  CTX.fill();
+  CTX.beginPath();
+  CTX.arc(0, 0, size * 0.34, 0, TAU);
+  CTX.fillStyle = 'rgba(255,255,255,0.95)';
+  CTX.fill();
+  CTX.restore();
+}
+
+/* ── word wrap and paragraphs ───────────────────────────────────────────── */
+
+/* Word wrap that also works for Chinese, which has no spaces: CJK codepoints and
+   punctuation become their own tokens while Latin runs stay whole. */
+var _tokRe = /[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]|[^\s\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]+|\s+/g;
+
+function wrapText(text, maxW, size, weight) {
+  setFont(size, weight);
+  var tokens = String(text).match(_tokRe) || [];
+  var lines = [];
+  var line = '';
+  for (var i = 0; i < tokens.length; i += 1) {
+    var tok = tokens[i];
+    var candidate = line + tok;
+    if (line !== '' && CTX.measureText(candidate).width > maxW) {
+      lines.push(line.replace(/\s+$/, ''));
+      line = /^\s+$/.test(tok) ? '' : tok;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line.replace(/\s+$/, '') !== '') lines.push(line.replace(/\s+$/, ''));
+  return lines;
+}
+
+/** Draw wrapped text; returns the height consumed. */
+function paragraph(text, x, y, maxW, o) {
+  var opts = o || {};
+  var size = opts.size || 13;
+  var lh = size * (opts.lineHeight || 1.5);
+  var lines = wrapText(text, maxW, size, opts.weight);
+  for (var i = 0; i < lines.length; i += 1) {
+    TXT(lines[i], x, y + lh * (i + 0.5), {
+      size: size, weight: opts.weight, align: opts.align || 'left',
+      color: opts.color, baseline: 'middle'
+    });
+  }
+  return lines.length * lh;
+}
+
+function paragraphHeight(text, maxW, size, weight, lineHeight) {
+  return wrapText(text, maxW, size, weight).length * size * (lineHeight || 1.5);
+}
+
+/* ── composite widgets ──────────────────────────────────────────────────── */
+
+function drawCard(x, y, w, h, r, o) {
+  var theme = T();
+  var opts = o || {};
+  var bg = opts.bg || theme.cardBg;
+  withShadow('rgba(0,0,0,0.34)', opts.shadowBlur === undefined ? 12 : opts.shadowBlur, 0, 5, function () {
+    fillRR(x, y, w, h, r, bg);
+  });
+  roundRectPath(x + 1, y + 1, w - 2, h * 0.5, r * 0.9);
+  CTX.strokeStyle = 'rgba(255,255,255,0.14)';
+  CTX.lineWidth = 1.2;
+  CTX.stroke();
+  strokeRR(x + 0.5, y + 0.5, w - 1, h - 1, r, rgba(theme.edge, 0.9), 1.2);
+}
+
+function drawChip(x, y, w, h, label, active, o) {
+  var theme = T();
+  var opts = o || {};
+  if (active) {
+    withShadow(rgba(theme.primary, 0.5), 10, 0, 3, function () {
+      fillRR(x, y, w, h, h / 2, vGrad(x, y, w, h, theme.btnGrad[0], theme.btnGrad[1]));
+    });
+    TXT(label, x + w / 2, y + h / 2 + 0.5, {
+      size: opts.size || 14, color: theme.btnText, maxW: w - 10, weight: '800'
+    });
+  } else {
+    fillRR(x, y, w, h, h / 2, opts.bg || 'rgba(255,255,255,0.08)');
+    strokeRR(x + 0.5, y + 0.5, w - 1, h - 1, h / 2, rgba(theme.edge, 0.8), 1);
+    TXT(label, x + w / 2, y + h / 2 + 0.5, { size: opts.size || 14, color: theme.muted, maxW: w - 10 });
+  }
+}
+
+function drawButton(x, y, w, h, label, pressed, o) {
+  var theme = T();
+  var opts = o || {};
+  var dy = pressed ? 1.5 : 0;
+  var top = opts.grad ? opts.grad[0] : theme.btnGrad[0];
+  var bot = opts.grad ? opts.grad[1] : theme.btnGrad[1];
+  fillRR(x, y + 3.5, w, h, h / 2, 'rgba(0,0,0,0.35)');
+  withShadow(rgba(theme.primary, 0.55), 14, 0, 5, function () {
+    fillRR(x, y + dy, w, h, h / 2, vGrad(x, y + dy, w, h, top, bot));
+  });
+  roundRectPath(x + 3, y + dy + 2.5, w - 6, h * 0.42, h * 0.22);
+  CTX.strokeStyle = 'rgba(255,255,255,0.34)';
+  CTX.lineWidth = 1.4;
+  CTX.stroke();
+  TXT(label, x + w / 2, y + dy + h / 2 + 0.5, {
+    size: opts.size || 20, color: opts.color || theme.btnText, maxW: w - 22,
+    letterSpacing: opts.letterSpacing || '0px', weight: '800'
+  });
+}
+
+/* ── game sprites, painted once into offscreen bitmaps ──────────────────── */
+/* A busy level draws two hulls, a dozen rocks and a hundred particles per frame.
+   Re-running gradient construction for each of those every frame is the single
+   most expensive thing this game could do, so hulls and rocks are stamped into
+   small offscreen canvases and blitted from then on. */
+
+var _spriteCache = {};
+var _spriteStamp = '';
+
+function spriteStamp() {
+  return getThemeId() + ':' + Math.round(LAY.scale * VIEW.dpr * 100);
+}
+
+function spriteKey(parts) { return parts.join('|'); }
+
+function spritePad() { return 3; }
+
+/** Draw into a fresh offscreen canvas sized in design units. */
+function makeSprite(span, paint) {
+  var s = Math.max(0.5, LAY.scale * VIEW.dpr);
+  var c = document.createElement('canvas');
+  c.width = Math.max(2, Math.ceil(span * s));
+  c.height = Math.max(2, Math.ceil(span * s));
+  var g = c.getContext('2d');
+  g.setTransform(s, 0, 0, s, 0, 0);
+  paint(g, span / 2, span / 2);
+  return { canvas: c, span: span };
+}
+
+function cachedSprite(key, span, paint) {
+  var stamp = spriteStamp();
+  if (stamp !== _spriteStamp) { _spriteCache = {}; _spriteStamp = stamp; }
+  var hit = _spriteCache[key];
+  if (hit) return hit;
+  hit = makeSprite(span, paint);
+  _spriteCache[key] = hit;
+  return hit;
+}
+
+/** Hull: a dart with a concave tail, a cockpit and a per-ship emblem.
+ *  The emblem is a SHAPE (ring vs chevron) so the two ships stay tellable
+ *  apart without relying on colour alone. */
+function paintHull(g, cx, cy, i) {
+  var base = shipColor(i), dark = shipDark(i), light = shipLight(i);
+  var r = cfgGet('physics.shipRadius', 7);
+  g.save();
+  g.translate(cx, cy);
+
+  function hullPath(scale) {
+    g.beginPath();
+    g.moveTo(0, -r * 1.55 * scale);
+    g.lineTo(r * 0.98 * scale, r * 1.02 * scale);
+    g.lineTo(0, r * 0.44 * scale);
+    g.lineTo(-r * 0.98 * scale, r * 1.02 * scale);
+    g.closePath();
+  }
+
+  var grad = g.createLinearGradient(0, -r * 1.55, 0, r * 1.02);
+  grad.addColorStop(0, light);
+  grad.addColorStop(0.5, base);
+  grad.addColorStop(1, dark);
+
+  g.shadowColor = 'rgba(0,0,0,0.45)';
+  g.shadowBlur = r * 0.7;
+  g.shadowOffsetY = r * 0.3;
+  hullPath(1);
+  g.fillStyle = grad;
+  g.fill();
+  g.shadowColor = 'rgba(0,0,0,0)';
+  g.shadowBlur = 0;
+  g.shadowOffsetY = 0;
+
+  hullPath(1);
+  g.strokeStyle = light;
+  g.lineWidth = Math.max(0.7, r * 0.13);
+  g.lineJoin = 'round';
+  g.stroke();
+
+  /* cockpit */
+  g.beginPath();
+  g.arc(0, -r * 0.34, r * 0.26, 0, TAU);
+  g.fillStyle = 'rgba(255,255,255,0.92)';
+  g.fill();
+
+  /* emblem: ring for ship 0, chevron for ship 1 */
+  g.strokeStyle = 'rgba(255,255,255,0.88)';
+  g.lineWidth = Math.max(1, r * 0.16);
+  g.lineCap = 'round';
+  if (i % 2 === 0) {
+    g.beginPath();
+    g.arc(0, r * 0.30, r * 0.24, 0, TAU);
+    g.stroke();
+  } else {
+    g.beginPath();
+    g.moveTo(-r * 0.30, r * 0.44);
+    g.lineTo(0, r * 0.18);
+    g.lineTo(r * 0.30, r * 0.44);
+    g.stroke();
+  }
+  g.restore();
+}
+
+function drawShip(x, y, angle, i, o) {
+  var opts = o || {};
+  var r = cfgGet('physics.shipRadius', 7);
+  var span = r * 3.6 + spritePad();
+  var spr = cachedSprite(spriteKey(['hull', i, Math.round(r * 10)]), span, function (g, cx, cy) {
+    paintHull(g, cx, cy, i);
+  });
+  CTX.save();
+  CTX.globalAlpha = opts.alpha === undefined ? 1 : opts.alpha;
+  CTX.translate(x, y);
+  CTX.rotate(angle);
+  if (opts.scale && opts.scale !== 1) CTX.scale(opts.scale, opts.scale);
+  CTX.drawImage(spr.canvas, -spr.span / 2, -spr.span / 2, spr.span, spr.span);
+  CTX.restore();
+}
+
+/** Exhaust plume: two nested tapers, length driven by the live thrust ramp. */
+function drawExhaust(x, y, angle, i, power, alpha) {
+  if (power <= 0.02) return;
+  var r = cfgGet('physics.shipRadius', 7);
+  var len = r * (1.1 + 3.6 * power);
+  var wide = r * (0.34 + 0.30 * power);
+  CTX.save();
+  CTX.globalAlpha = alpha === undefined ? 1 : alpha;
+  CTX.globalCompositeOperation = 'lighter';
+  CTX.translate(x, y);
+  CTX.rotate(angle);
+  var g = CTX.createLinearGradient(0, r * 0.6, 0, r * 0.6 + len);
+  g.addColorStop(0, rgba(shipLight(i), 0.95));
+  g.addColorStop(0.45, rgba(shipColor(i), 0.55));
+  g.addColorStop(1, rgba(shipColor(i), 0));
+  CTX.beginPath();
+  CTX.moveTo(-wide, r * 0.5);
+  CTX.lineTo(wide, r * 0.5);
+  CTX.lineTo(0, r * 0.5 + len);
+  CTX.closePath();
+  CTX.fillStyle = g;
+  CTX.fill();
+  var g2 = CTX.createLinearGradient(0, r * 0.5, 0, r * 0.5 + len * 0.5);
+  g2.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g2.addColorStop(1, 'rgba(255,255,255,0)');
+  CTX.beginPath();
+  CTX.moveTo(-wide * 0.42, r * 0.5);
+  CTX.lineTo(wide * 0.42, r * 0.5);
+  CTX.lineTo(0, r * 0.5 + len * 0.5);
+  CTX.closePath();
+  CTX.fillStyle = g2;
+  CTX.fill();
+  CTX.restore();
+}
+
+/** Asteroid: a seeded convex-ish polygon with a lighter rim. */
+function paintRock(g, cx, cy, r, verts) {
+  var theme = T();
+  var n = verts.length;
+  g.save();
+  g.translate(cx, cy);
+  g.beginPath();
+  for (var i = 0; i < n; i += 1) {
+    var a = (i / n) * TAU - Math.PI / 2;
+    var rr = r * verts[i];
+    var px = Math.cos(a) * rr, py = Math.sin(a) * rr;
+    if (i === 0) g.moveTo(px, py); else g.lineTo(px, py);
+  }
+  g.closePath();
+  var grad = g.createLinearGradient(-r, -r, r, r);
+  grad.addColorStop(0, theme.rockEdge);
+  grad.addColorStop(0.45, theme.rock);
+  grad.addColorStop(1, rgba(theme.rock, 0.75));
+  g.shadowColor = 'rgba(0,0,0,0.45)';
+  g.shadowBlur = r * 0.5;
+  g.shadowOffsetY = r * 0.22;
+  g.fillStyle = grad;
+  g.fill();
+  g.shadowColor = 'rgba(0,0,0,0)';
+  g.shadowBlur = 0;
+  g.shadowOffsetY = 0;
+  g.strokeStyle = theme.rockEdge;
+  g.lineWidth = Math.max(0.9, r * 0.09);
+  g.lineJoin = 'round';
+  g.stroke();
+
+  /* two interior facets so a tumbling rock reads as solid, not as a sticker */
+  g.strokeStyle = rgba(theme.rockEdge, 0.45);
+  g.lineWidth = Math.max(0.6, r * 0.06);
+  for (var k = 0; k < 2; k += 1) {
+    var a0 = (k * 2.4 + 0.6);
+    var a1 = a0 + 1.5;
+    g.beginPath();
+    g.moveTo(Math.cos(a0) * r * verts[k % n] * 0.72, Math.sin(a0) * r * verts[k % n] * 0.72);
+    g.lineTo(Math.cos(a1) * r * verts[(k + 3) % n] * 0.70, Math.sin(a1) * r * verts[(k + 3) % n] * 0.70);
+    g.stroke();
+  }
+  g.restore();
+}
+
+function drawRock(rock) {
+  var span = rock.r * 2.45 + spritePad();
+  var sig = rock.verts.join(',');
+  var spr = cachedSprite(spriteKey(['rock', Math.round(rock.r * 10), sig]), span, function (g, cx, cy) {
+    paintRock(g, cx, cy, rock.r, rock.verts);
+  });
+  CTX.save();
+  CTX.translate(rock.x, rock.y);
+  CTX.rotate(rock.rot);
+  CTX.drawImage(spr.canvas, -spr.span / 2, -spr.span / 2, spr.span, spr.span);
+  CTX.restore();
+}
+
+/** Gravity well: a dark core under breathing concentric rings, plus ripples that
+    travel outward so the pull has a visible direction of travel. */
+function drawWell(w, time) {
+  var theme = T();
+  CTX.save();
+  CTX.translate(w.x, w.y);
+  var core = CTX.createRadialGradient(0, 0, 0, 0, 0, w.r);
+  core.addColorStop(0, 'rgba(4,6,16,0.92)');
+  core.addColorStop(0.35, rgba(theme.well, 0.22));
+  core.addColorStop(1, rgba(theme.well, 0));
+  CTX.beginPath();
+  CTX.arc(0, 0, w.r, 0, TAU);
+  CTX.fillStyle = core;
+  CTX.fill();
+
+  for (var i = 0; i < 3; i += 1) {
+    var breath = 0.86 + 0.09 * Math.sin(time * 1.5 - i * 0.9);
+    CTX.beginPath();
+    CTX.arc(0, 0, w.r * (0.34 + i * 0.22) * breath, 0, TAU);
+    CTX.strokeStyle = rgba(theme.well, 0.42 - i * 0.10);
+    CTX.lineWidth = 1.4;
+    CTX.stroke();
+  }
+
+  var ripples = 2;
+  for (var k = 0; k < ripples; k += 1) {
+    var ph = ((time * 0.45 + k / ripples) % 1);
+    var rr = w.r * (0.18 + ph * 0.82);
+    CTX.beginPath();
+    CTX.arc(0, 0, rr, 0, TAU);
+    CTX.strokeStyle = rgba(theme.well, 0.34 * (1 - ph));
+    CTX.lineWidth = 2;
+    CTX.stroke();
+  }
+  CTX.restore();
+}
+
+/** A dock ring: rotating outer arcs plus a shape emblem matching its ship. */
+function drawGate(gate, time) {
+  var col = shipColor(gate.shipId);
+  var light = shipLight(gate.shipId);
+  CTX.save();
+  CTX.translate(gate.x, gate.y);
+  var flash = gate.flash > 0 ? gate.flash / cfgGet('anim.dockFlashSec', 0.32) : 0;
+
+  CTX.beginPath();
+  CTX.arc(0, 0, gate.r, 0, TAU);
+  var gg = CTX.createRadialGradient(0, 0, gate.r * 0.2, 0, 0, gate.r);
+  gg.addColorStop(0, rgba(col, 0.05 + 0.35 * flash));
+  gg.addColorStop(1, rgba(col, 0.22 + 0.4 * flash));
+  CTX.fillStyle = gg;
+  CTX.fill();
+
+  CTX.beginPath();
+  CTX.arc(0, 0, gate.r, 0, TAU);
+  CTX.strokeStyle = rgba(light, 0.75);
+  CTX.lineWidth = 1.8;
+  CTX.stroke();
+
+  /* four rotating arcs, so an idle dock still reads as powered */
+  CTX.save();
+  CTX.rotate(time * 0.9);
+  for (var i = 0; i < 4; i += 1) {
+    CTX.beginPath();
+    CTX.arc(0, 0, gate.r * 1.22, i * (TAU / 4), i * (TAU / 4) + 0.62);
+    CTX.strokeStyle = rgba(col, 0.85);
+    CTX.lineWidth = 2.6;
+    CTX.lineCap = 'round';
+    CTX.stroke();
+  }
+  CTX.restore();
+
+  CTX.strokeStyle = rgba(light, 0.95);
+  CTX.lineWidth = 2;
+  if (gate.shape === 'ring') {
+    CTX.beginPath();
+    CTX.arc(0, 0, gate.r * 0.45, 0, TAU);
+    CTX.stroke();
+  } else {
+    var t = gate.r * 0.5;
+    CTX.beginPath();
+    CTX.moveTo(0, -t);
+    CTX.lineTo(t * 0.92, t * 0.72);
+    CTX.lineTo(-t * 0.92, t * 0.72);
+    CTX.closePath();
+    CTX.stroke();
+  }
+
+  if (flash > 0) {
+    CTX.beginPath();
+    CTX.arc(0, 0, gate.r * (1 + (1 - flash) * 1.9), 0, TAU);
+    CTX.strokeStyle = 'rgba(255,255,255,' + (0.7 * flash) + ')';
+    CTX.lineWidth = 3;
+    CTX.stroke();
+  }
+  CTX.restore();
+}
+
+/** Fuel cell: a slowly spinning green capsule with a glowing core. */
+function drawCell(cell, time) {
+  var theme = T();
+  CTX.save();
+  CTX.translate(cell.x, cell.y);
+  var pulse = 0.9 + 0.1 * Math.sin(time * 3 + cell.id);
+  var gl = CTX.createRadialGradient(0, 0, 1, 0, 0, cell.r * 2.4 * pulse);
+  gl.addColorStop(0, rgba(theme.cell, 0.42));
+  gl.addColorStop(1, rgba(theme.cell, 0));
+  CTX.beginPath();
+  CTX.arc(0, 0, cell.r * 2.4 * pulse, 0, TAU);
+  CTX.fillStyle = gl;
+  CTX.fill();
+
+  CTX.rotate(time * 0.7 + cell.id);
+  CTX.beginPath();
+  CTX.moveTo(0, -cell.r * 1.15);
+  CTX.lineTo(cell.r * 1.05, 0);
+  CTX.lineTo(0, cell.r * 1.15);
+  CTX.lineTo(-cell.r * 1.05, 0);
+  CTX.closePath();
+  CTX.fillStyle = theme.cell;
+  CTX.fill();
+  CTX.strokeStyle = 'rgba(255,255,255,0.85)';
+  CTX.lineWidth = 1.4;
+  CTX.stroke();
+  CTX.beginPath();
+  CTX.moveTo(0, -cell.r * 0.5);
+  CTX.lineTo(0, cell.r * 0.5);
+  CTX.strokeStyle = 'rgba(255,255,255,0.95)';
+  CTX.lineWidth = 2;
+  CTX.stroke();
+  CTX.restore();
+}
+
+/* ── particles ──────────────────────────────────────────────────────────── */
+/* Particles are decorative only: nothing here feeds a judgement, which is why
+   this is the one place a random number is allowed. */
+
+function spawnParticles(world, x, y, count, color, speed, life, size) {
+  var cap = cfgGet('anim.particleCap', 240);
+  for (var i = 0; i < count; i += 1) {
+    if (world.particles.length >= cap) break;
+    var a = Math.random() * TAU;
+    var sp = speed * (0.35 + Math.random() * 0.9);
+    var lf = life * (0.6 + Math.random() * 0.8);
+    world.particles.push({
+      x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: lf, max: lf, color: color, size: size * (0.6 + Math.random() * 0.9), drag: 1.6
+    });
+  }
+}
+
+function stepParticles(world, dt) {
+  var list = world.particles;
+  for (var i = list.length - 1; i >= 0; i -= 1) {
+    var p = list[i];
+    p.life -= dt;
+    if (p.life <= 0) { list.splice(i, 1); continue; }
+    var damp = Math.max(0, 1 - p.drag * dt);
+    p.vx *= damp;
+    p.vy *= damp;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+}
+
+function drawParticles(world) {
+  var list = world.particles;
+  CTX.save();
+  CTX.globalCompositeOperation = 'lighter';
+  for (var i = 0; i < list.length; i += 1) {
+    var p = list[i];
+    var a = Math.max(0, p.life / p.max);
+    CTX.globalAlpha = a;
+    CTX.fillStyle = p.color;
+    CTX.beginPath();
+    CTX.arc(p.x, p.y, p.size * (0.4 + a * 0.6), 0, TAU);
+    CTX.fill();
+  }
+  CTX.restore();
+}
+
+/* ── the game mark: two hulls nose to nose over a shared gauge ──────────── */
+function drawMark(cx, cy, size, t) {
+  var r = size * 0.09;
+  var pulse = t ? 1 + Math.sin(t * 3.1) * 0.06 : 1;
+  var gap = size * 0.26;
+  CTX.save();
+  CTX.translate(cx, cy);
+  drawShip(-gap, 4, -Math.PI / 2 - 0.35, 0, { scale: pulse });
+  drawShip(gap, 4, Math.PI / 2 + 0.35, 1, { scale: pulse });
+  var barW = size * 0.62;
+  var barH = size * 0.10;
+  fillRR(-barW / 2, size * 0.30, barW, barH, barH / 2, 'rgba(255,255,255,0.16)');
+  var fill = barW * (0.44 + 0.06 * Math.sin(t ? t * 1.7 : 0));
+  fillRR(-barW / 2, size * 0.30, fill, barH, barH / 2, T().accent);
+  drawSpark(0, 0, size * 0.13 * pulse, T().accent, 0.85);
+  CTX.restore();
+}
+
+/* ── background ─────────────────────────────────────────────────────────── */
+var _deco = [];
+var _starFar = null;
+
+function resetDeco() {
+  _deco = [];
+  _starFar = null;
+  _spriteCache = {};
+  _spriteStamp = '';
+  _grainPattern = null;
+}
+
+function ensureDeco() {
+  if (_deco.length) return;
+  var rnd = mulberry32(20260910);
+  var i;
+  for (i = 0; i < 42; i += 1) {
+    _deco.push({
+      x: rnd() * LAY.DW, y: rnd() * LAY.DH,
+      r: 0.7 + rnd() * 1.5, ph: rnd() * TAU,
+      sp: 0.5 + rnd() * 1.6, warm: rnd() < 0.28
+    });
+  }
+  for (i = 0; i < 120; i += 1) {
+    _deco.push({
+      x: rnd() * LAY.DW, y: rnd() * LAY.DH,
+      r: 0.5 + rnd() * 0.9, ph: rnd() * TAU,
+      sp: 0.3 + rnd() * 0.9, warm: rnd() < 0.22, far: true
+    });
+  }
+}
+
+/** The far star layer never changes, so it is stamped once into a bitmap. */
+function starFarBitmap() {
+  if (_starFar && _starFar.stamp === spriteStamp()) return _starFar;
+  var s = Math.max(0.5, LAY.scale * VIEW.dpr);
+  var c = document.createElement('canvas');
+  c.width = Math.max(2, Math.ceil(LAY.DW * s));
+  c.height = Math.max(2, Math.ceil(LAY.DH * s));
+  var g = c.getContext('2d');
+  g.setTransform(s, 0, 0, s, 0, 0);
+  var theme = T();
+  for (var i = 0; i < _deco.length; i += 1) {
+    var d = _deco[i];
+    if (!d.far) continue;
+    g.globalAlpha = 0.30 + (d.warm ? 0.22 : 0);
+    g.fillStyle = d.warm ? theme.starB : theme.starA;
+    g.beginPath();
+    g.arc(d.x, d.y, d.r, 0, TAU);
+    g.fill();
+  }
+  _starFar = { canvas: c, stamp: spriteStamp() };
+  return _starFar;
+}
+
+function drawBackground(t, time) {
+  var theme = T();
+  var g = CTX.createLinearGradient(0, 0, 0, VIEW.vh);
+  g.addColorStop(0, theme.bg[0]);
+  g.addColorStop(1, theme.bg[1]);
+  CTX.fillStyle = g;
+  CTX.fillRect(0, 0, VIEW.vw, VIEW.vh);
+
+  ensureDeco();
+  CTX.save();
+  CTX.translate(LAY.stageX, LAY.stageY);
+  CTX.scale(LAY.scale, LAY.scale);
+
+  /* two soft nebulae so a large dark field is not perfectly flat */
+  var n1 = CTX.createRadialGradient(LAY.DW * 0.22, LAY.DH * 0.20, 4, LAY.DW * 0.22, LAY.DH * 0.20, LAY.DW * 0.75);
+  n1.addColorStop(0, rgba(theme.primary, 0.13));
+  n1.addColorStop(1, rgba(theme.primary, 0));
+  CTX.fillStyle = n1;
+  CTX.fillRect(0, 0, LAY.DW, LAY.DH);
+  var n2 = CTX.createRadialGradient(LAY.DW * 0.84, LAY.DH * 0.78, 4, LAY.DW * 0.84, LAY.DH * 0.78, LAY.DW * 0.7);
+  n2.addColorStop(0, rgba(theme.well, 0.11));
+  n2.addColorStop(1, rgba(theme.well, 0));
+  CTX.fillStyle = n2;
+  CTX.fillRect(0, 0, LAY.DW, LAY.DH);
+
+  var far = starFarBitmap();
+  CTX.drawImage(far.canvas, 0, 0, LAY.DW, LAY.DH);
+
+  /* near stars twinkle and drift a little */
+  for (var i = 0; i < _deco.length; i += 1) {
+    var d = _deco[i];
+    if (d.far) continue;
+    var tw = 0.45 + 0.55 * (Math.sin(time * d.sp + d.ph) * 0.5 + 0.5);
+    var ox = Math.sin(time * 0.11 + d.ph) * 3.2;
+    var oy = Math.cos(time * 0.09 + d.ph) * 2.4;
+    CTX.globalAlpha = tw;
+    CTX.fillStyle = d.warm ? theme.starB : theme.starA;
+    CTX.beginPath();
+    CTX.arc(d.x + ox, d.y + oy, d.r, 0, TAU);
+    CTX.fill();
+  }
+  CTX.globalAlpha = 1;
+  CTX.restore();
+}
+
+/** Paper grain, tiled from assets/grain.png - skipped entirely if unavailable. */
+function drawGrain(x, y, w, h, alpha) {
+  var img = assetImage('grain');
+  if (!img) return;
+  if (!_grainPattern) {
+    try { _grainPattern = CTX.createPattern(img, 'repeat'); } catch (e) { _grainPattern = null; }
+  }
+  if (!_grainPattern) return;
+  CTX.save();
+  CTX.beginPath();
+  CTX.rect(x, y, w, h);
+  CTX.clip();
+  CTX.globalAlpha = alpha === undefined ? 0.08 : alpha;
+  CTX.fillStyle = _grainPattern;
+  CTX.fillRect(x, y, w, h);
+  CTX.restore();
+}
+
+
+/* ===== 10-ui.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §10  UI — immediate-mode hit regions, press feedback, toast, modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Regions are registered while drawing (design units), then hit-tested on input.
+   Later registrations sit on top, so the lookup walks backwards. */
+var HITS = [];
+var PRESS = { id: null, x: 0, y: 0, t: 0, moved: false };
+var TOAST = { text: '', t: 0, life: 0 };
+
+function resetHits() { HITS.length = 0; }
+
+function HIT(id, x, y, w, h) {
+  HITS.push({ id: id, x: x, y: y, w: w, h: h });
+  return { id: id, x: x, y: y, w: w, h: h };
+}
+
+function pickHit(x, y) {
+  for (var i = HITS.length - 1; i >= 0; i -= 1) {
+    var r = HITS[i];
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r.id;
+  }
+  return null;
+}
+
+function isPressed(id) { return PRESS.id === id; }
+
+function toast(text) {
+  TOAST.text = text;
+  TOAST.t = 0;
+  TOAST.life = 1.8;
+}
+
+function drawToast(dt) {
+  if (TOAST.life <= 0) return;
+  TOAST.life -= dt;
+  TOAST.t += dt;
+  var p = clamp(TOAST.t / 0.22, 0, 1);
+  var out = clamp(TOAST.life / 0.4, 0, 1);
+  var a = Math.min(p, out);
+  var y = LAY.contentBottom - 46 - (1 - easeOutCubic(p)) * 16;
+  CTX.save();
+  CTX.globalAlpha = a;
+  setFont(14, '700');
+  var w = Math.min(LAY.contentRight - LAY.contentLeft - 20, CTX.measureText(TOAST.text).width + 34);
+  var x = (LAY.contentLeft + LAY.contentRight) / 2 - w / 2;
+  withShadow('rgba(20,10,0,0.30)', 14, 0, 5, function () {
+    fillRR(x, y, w, 34, 17, rgba(T().edge, 0.95));
+  });
+  TXT(TOAST.text, x + w / 2, y + 17.5, { size: 14, color: '#FFF6E6', maxW: w - 20 });
+  CTX.restore();
+}
+
+/** Small round icon button (language switch, close, etc). */
+function drawRoundButton(id, cx, cy, r, label, o) {
+  var theme = T();
+  var opts = o || {};
+  var pressed = isPressed(id);
+  var scale = pressed ? 0.93 : 1;
+  CTX.save();
+  CTX.translate(cx, cy);
+  CTX.scale(scale, scale);
+  withShadow('rgba(46,28,14,0.22)', 9, 0, 3, function () {
+    CTX.beginPath();
+    CTX.arc(0, 0, r, 0, TAU);
+    CTX.fillStyle = opts.bg || (theme.dark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.78)');
+    CTX.fill();
+  });
+  CTX.beginPath();
+  CTX.arc(0, 0, r * 0.94, 0, TAU);
+  CTX.strokeStyle = 'rgba(255,255,255,0.5)';
+  CTX.lineWidth = 1.1;
+  CTX.stroke();
+  TXT(label, 0, 1, { size: opts.size || r * 0.86, color: opts.color || theme.text, weight: '800' });
+  CTX.restore();
+  HIT(id, cx - r, cy - r, r * 2, r * 2);
+}
+
+/** Screen header: back affordance on the left, centred title. */
+function drawHeader(title, backId, time) {
+  var cy = LAY.contentTop + 18;
+  var theme = T();
+  if (backId) {
+    var r = 16;
+    var cx = LAY.contentLeft + r;
+    var pressed = isPressed(backId);
+    CTX.save();
+    CTX.translate(cx, cy);
+    CTX.scale(pressed ? 0.93 : 1, pressed ? 0.93 : 1);
+    withShadow('rgba(46,28,14,0.20)', 8, 0, 3, function () {
+      CTX.beginPath();
+      CTX.arc(0, 0, r, 0, TAU);
+      CTX.fillStyle = theme.dark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.78)';
+      CTX.fill();
+    });
+    CTX.beginPath();
+    CTX.moveTo(4, -6); CTX.lineTo(-3, 0); CTX.lineTo(4, 6);
+    CTX.strokeStyle = theme.text; CTX.lineWidth = 2.4; CTX.lineCap = 'round'; CTX.lineJoin = 'round';
+    CTX.stroke();
+    CTX.restore();
+    HIT(backId, cx - r, cy - r, r * 2, r * 2);
+  }
+  TXT(title, (LAY.contentLeft + LAY.contentRight) / 2, cy, {
+    size: 19, color: theme.text, maxW: LAY.contentRight - LAY.contentLeft - 80,
+    shadow: { color: 'rgba(255,255,255,0.4)', blur: 3, oy: 1 }
+  });
+  return cy;
+}
+
+/** Modal card, centred. Returns the content rect. */
+function drawModalCard(w, h, time) {
+  var x = (LAY.contentLeft + LAY.contentRight) / 2 - w / 2;
+  var y = (LAY.contentTop + LAY.contentBottom) / 2 - h / 2;
+  CTX.fillStyle = 'rgba(20,12,6,0.42)';
+  CTX.fillRect(-LAY.stageX / LAY.scale, -LAY.stageY / LAY.scale,
+    VIEW.vw / LAY.scale, VIEW.vh / LAY.scale);
+  var pop = time === undefined ? 1 : clamp(time / 0.22, 0, 1);
+  CTX.save();
+  CTX.translate(x + w / 2, y + h / 2);
+  var s = 0.94 + 0.06 * easeOutBack(pop);
+  CTX.scale(s, s);
+  CTX.translate(-(x + w / 2), -(y + h / 2));
+  drawCard(x, y, w, h, 20, { shadowBlur: 22 });
+  CTX.restore();
+  return { x: x, y: y, w: w, h: h };
+}
+
+
+/* ===== 11-scene-home.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §11  SCENE · HOME — level select, theme, launch, saved progress
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var HOME = {
+  time: 0,
+
+  draw: function (dt, time) {
+    this.time += dt;
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var W = R - L;
+    var cx = (L + R) / 2;
+
+    /* ── top bar: rules / about on the left, language and sound on the right ── */
+    /* +4 keeps the round buttons fully inside the top guard band, not straddling it. */
+    var barY = LAY.contentTop + 4;
+    var barH = 28;
+    var bw = 60;
+    drawChip(L, barY, bw, barH, tr('home.rules'), isPressed('rules'), { size: 13 });
+    HIT('rules', L, barY, bw, barH);
+    drawChip(L + bw + 8, barY, bw, barH, tr('home.about'), isPressed('about'), { size: 13 });
+    HIT('about', L + bw + 8, barY, bw, barH);
+
+    drawRoundButton('lang', R - 15, barY + barH / 2, 15, tr('home.lang'), { size: 15 });
+    drawRoundButton('sound', R - 15 - 38, barY + barH / 2, 15, SFX.isEnabled() ? '\u266A' : '\u2715', { size: 14 });
+
+    /* ── title block ── */
+    var markCY = barY + barH + 50;
+    drawMark(cx, markCY, 108, this.time);
+    TXT(tr('game.title'), cx, markCY + 70, {
+      size: 40, grad: theme.titleGrad, maxW: W - 12,
+      outline: { color: theme.titleEdge, width: 6 },
+      shadow: { color: 'rgba(0,0,0,0.45)', blur: 8, oy: 3 },
+      letterSpacing: '2px'
+    });
+    TXT(tr('game.subtitle'), cx, markCY + 98, {
+      size: 13, color: theme.subtitle, maxW: W - 24, letterSpacing: '1.4px'
+    });
+
+    /* ── level select ── */
+    var y = markCY + 118;
+    TXT(tr('home.select'), L + 2, y, { size: 12, align: 'left', color: theme.muted });
+    var stats = readStats();
+    TXT(tr('home.cleared', { n: stats.cleared, m: levelCount() }), R - 2, y, {
+      size: 12, align: 'right', color: theme.muted
+    });
+    y += 15;
+
+    var cols = 4;
+    var rows = 2;
+    var gap = 8;
+    var cw = (W - gap * (cols - 1)) / cols;
+    var ch = 46;
+    var total = levelCount();
+    for (var i = 1; i <= total; i += 1) {
+      var gi = (i - 1) % (cols * rows);
+      var col = gi % cols;
+      var row = Math.floor(gi / cols);
+      this.levelChip(L + col * (cw + gap), y + row * (ch + gap), cw, ch, i, isUnlocked(i, stats), stats);
+    }
+    y += rows * ch + (rows - 1) * gap;
+
+    /* ── theme ── */
+    y += 13;
+    TXT(tr('home.theme'), L + 2, y, { size: 12, align: 'left', color: theme.muted });
+    y += 15;
+    var tIds = themeIds();
+    var tw = (W - gap * (tIds.length - 1)) / tIds.length;
+    for (var t = 0; t < tIds.length; t += 1) {
+      this.themeChip(L + t * (tw + gap), y, tw, 52, tIds[t]);
+    }
+
+    /* ── launch: pinned to the bottom so the empty space sits inside the layout
+           rather than trailing underneath it ── */
+    var playY = LAY.contentBottom - 60 - 32;
+    var label = (stats.cleared > 0 && APP.settings.level > 1)
+      ? tr('home.continue', { n: APP.settings.level })
+      : tr('home.play');
+    drawButton(L, playY, W, 60, label, isPressed('play'), { size: 22, letterSpacing: '4px' });
+    HIT('play', L, playY, W, 60);
+
+    /* ── saved progress ── */
+    var line = stats.runs > 0
+      ? tr('home.best', { n: stats.best }) + '   \u00b7   ' + tr('home.stats.runs', { n: stats.runs })
+      : tr('home.stats.none');
+    TXT(line, cx, Math.min(playY + 60 + 18, LAY.contentBottom - 4), {
+      size: 12, color: theme.muted, maxW: W
+    });
+  },
+
+  /* One level tile: number, name under it, a lock when it is still closed off. */
+  levelChip: function (x, y, w, h, index, unlocked, stats) {
+    var theme = T();
+    var id = 'lvl:' + index;
+    var on = Number(APP.settings.level) === index;
+    var done = index <= stats.cleared;
+    var def = levelDef(index);
+    var pressed = isPressed(id);
+
+    CTX.save();
+    CTX.translate(x + w / 2, y + h / 2);
+    var s = pressed ? 0.96 : 1;
+    CTX.scale(s, s);
+    CTX.translate(-(x + w / 2), -(y + h / 2));
+    if (on) {
+      withShadow(rgba(theme.primary, 0.55), 12, 0, 3, function () {
+        fillRR(x, y, w, h, 12, vGrad(x, y, w, h, theme.btnGrad[0], theme.btnGrad[1]));
+      });
+    } else {
+      fillRR(x, y, w, h, 12, unlocked ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)');
+      strokeRR(x + 0.5, y + 0.5, w - 1, h - 1, 12, rgba(theme.edge, 0.9), 1.1);
+    }
+    CTX.restore();
+
+    if (!unlocked) {
+      /* a padlock glyph, drawn as a body plus a shackle */
+      var lx = x + w / 2, ly = y + h / 2 + 1;
+      fillRR(lx - 5, ly - 1, 10, 8, 2, rgba(theme.muted, 0.55));
+      CTX.beginPath();
+      CTX.arc(lx, ly - 2, 3.4, Math.PI, 0);
+      CTX.strokeStyle = rgba(theme.muted, 0.55);
+      CTX.lineWidth = 1.6;
+      CTX.stroke();
+      return;
+    }
+
+    TXT(String(index), x + 15, y + h / 2, {
+      size: 19, color: on ? theme.btnText : theme.text, maxW: 24, weight: '800'
+    });
+    TXT(def ? levelName(def) : '', x + w - 8, y + h / 2, {
+      size: 10, align: 'right', color: on ? theme.btnText : theme.muted, maxW: w - 26
+    });
+    if (done) {
+      var bx = x + w - 7, by = y + 7;
+      CTX.beginPath();
+      CTX.arc(bx, by, 4.6, 0, TAU);
+      CTX.fillStyle = on ? theme.btnText : theme.cell;
+      CTX.fill();
+      CTX.beginPath();
+      CTX.moveTo(bx - 2.2, by);
+      CTX.lineTo(bx - 0.6, by + 1.8);
+      CTX.lineTo(bx + 2.4, by - 1.8);
+      CTX.strokeStyle = on ? theme.btnGrad[1] : '#04140F';
+      CTX.lineWidth = 1.6;
+      CTX.lineCap = 'round';
+      CTX.lineJoin = 'round';
+      CTX.stroke();
+    }
+    HIT(id, x, y, w, h);
+  },
+
+  themeChip: function (x, y, w, h, id) {
+    var on = getThemeId() === id;
+    var theme = null;
+    for (var i = 0; i < THEMES.length; i += 1) { if (THEMES[i].id === id) theme = THEMES[i]; }
+    if (!theme) return;
+    fillRR(x, y, w, h, 12, theme.bg[1]);
+    /* the palette itself is the label: two swatches plus the ship pair */
+    CTX.save();
+    roundRectPath(x, y, w, h, 12);
+    CTX.clip();
+    for (var k = 0; k < 3; k += 1) {
+      CTX.globalAlpha = 0.22;
+      CTX.fillStyle = theme.starA;
+      CTX.beginPath();
+      CTX.arc(x + 12 + k * 26, y + h * 0.5, 1.4, 0, TAU);
+      CTX.fill();
+    }
+    CTX.globalAlpha = 1;
+    CTX.restore();
+    drawShip(x + 20, y + h / 2, -Math.PI / 2, 0, { scale: 0.85 });
+    drawShip(x + 40, y + h / 2, -Math.PI / 2, 1, { scale: 0.85 });
+    TXT(themeName(theme), x + w - 10, y + h / 2, {
+      size: 11.5, align: 'right', color: theme.text, maxW: w - 56
+    });
+    strokeRR(x + 0.5, y + 0.5, w - 1, h - 1, 12, on ? theme.primary : rgba(theme.edge, 0.9), on ? 2.4 : 1.1);
+    HIT('theme:' + id, x, y, w, h);
+  },
+
+  actions: {
+    'lang': function () { setLang(getLang() === 'zh' ? 'en' : 'zh'); },
+    'sound': function () { SFX.setEnabled(!SFX.isEnabled()); cfgSet('audio.enabled', SFX.isEnabled()); },
+    'rules': function () { APP.go('rules'); },
+    'about': function () { APP.go('about'); },
+    'play': function () { APP.startLevel(APP.settings.level); }
+  }
+};
+
+/* A level opens once the previous one has been cleared. Level 1 is always open,
+   which is what keeps a fresh install playable with zero stored state. */
+function isUnlocked(index, stats) {
+  var s = stats || readStats();
+  return Number(index) <= (Number(s.cleared) || 0) + 1;
+}
+
+/* Actions that carry a value, kept out of the flat map above. Every value is
+   validated here so a malformed chip id can never corrupt the next run. */
+function handleHomePick(id) {
+  if (id.indexOf('lvl:') === 0) {
+    var n = Number(id.slice(4));
+    if (isFinite(n) && n >= 1 && n <= levelCount() && isUnlocked(n)) {
+      APP.settings.level = n;
+      SFX.click();
+    }
+    return true;
+  }
+  if (id.indexOf('theme:') === 0) {
+    if (setThemeId(id.slice(6))) { resetDeco(); SFX.click(); }
+    return true;
+  }
+  return false;
+}
+
+
+/* ===== 12-scene-play.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §12  SCENE · PLAY — the arena, the pointers, the tank, the pause modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var PLAY = {
+  world: null,
+  pointers: [],
+  assign: { shipPointer: [], dist: [] },
+  briefT: 0,
+  paused: false,
+  shake: 0,
+  shakeT: 0,
+  heartbeatT: 0,
+  over: false,
+  lowWarned: false,
+
+  enter: function (opts) {
+    PLAY.world = buildWorld(opts.index, opts.seed, arenaRect());
+    PLAY.pointers = [];
+    PLAY.assign = { shipPointer: [], dist: [] };
+    PLAY.briefT = cfgGet('anim.briefSec', 1.25);
+    PLAY.paused = false;
+    PLAY.shake = 0;
+    PLAY.heartbeatT = 0;
+    PLAY.over = false;
+    PLAY.lowWarned = false;
+    SFX.setEngine(0);
+    SFX.launch(0);
+    SFX.launch(1);
+  },
+
+  exit: function () {
+    SFX.setEngine(0);
+    PLAY.pointers = [];
+  },
+
+  setPaused: function (on) {
+    if (PLAY.over) return false;
+    PLAY.paused = !!on;
+    PLAY.pointers = [];
+    PLAY.assign = { shipPointer: [], dist: [] };
+    if (PLAY.paused) SFX.setEngine(0);
+    return PLAY.paused;
+  },
+
+  /* ── simulation ───────────────────────────────────────────────────────── */
+  update: function (dt) {
+    var w = PLAY.world;
+    if (!w) return;
+
+    if (PLAY.shake > 0) PLAY.shake = Math.max(0, PLAY.shake - dt * 42);
+    PLAY.shakeT += dt;
+
+    if (PLAY.paused) { SFX.setEngine(0); return; }
+
+    if (PLAY.briefT > 0) {
+      PLAY.briefT -= dt;
+      SFX.setEngine(0);
+      stepParticles(w, dt);
+      return;
+    }
+
+    if (w.status === 'playing') {
+      var res = assignPointers(w.ships, PLAY.pointers, PLAY.assign,
+        cfgGet('physics.assignHysteresisPx', 20));
+      PLAY.assign = { shipPointer: res.shipPointer, dist: res.dist };
+      stepWorld(w, res.aims, dt);
+      PLAY.consume(w);
+
+      /* engine note follows the live thrust so the tank is audible, not just visible */
+      var level = 0, live = 0;
+      for (var i = 0; i < w.ships.length; i += 1) {
+        var s = w.ships[i];
+        if (!s.alive || s.docked) continue;
+        live += 1;
+        level += s.ramp;
+      }
+      SFX.setEngine(live > 0 ? level / live : 0);
+
+      /* low-fuel heartbeat: the last quarter of the tank is announced, not just shown */
+      var ratio = w.fuelMax > 0 ? w.fuel / w.fuelMax : 0;
+      if (ratio > 0 && ratio <= cfgGet('anim.lowFuelRatio', 0.25)) {
+        PLAY.heartbeatT -= dt;
+        if (PLAY.heartbeatT <= 0) { PLAY.heartbeatT = 1.2; SFX.lowFuel(); }
+      }
+    } else {
+      SFX.setEngine(0);
+      if (!PLAY.over) PLAY.over = true;
+    }
+    stepParticles(w, dt);
+  },
+
+  /* Physics reports what happened; the scene is the only layer allowed to make
+     noise or throw sparks, which keeps the rules replayable in a bare harness. */
+  consume: function (w) {
+    for (var i = 0; i < w.events.length; i += 1) {
+      var e = w.events[i];
+      if (e.type === 'wall') {
+        SFX.wall(e.speed);
+        PLAY.shake = Math.min(7, PLAY.shake + e.speed / 42);
+        spawnParticles(w, e.x, e.y, 5, shipLight(e.ship), 70, 0.32, 1.8);
+      } else if (e.type === 'dock') {
+        SFX.dock(e.precise);
+        PLAY.shake = Math.min(9, PLAY.shake + (e.precise ? 6 : 4));
+        spawnParticles(w, e.x, e.y, e.precise ? 26 : 16, shipLight(e.ship), 130, 0.6, 2.4);
+        if (e.precise) spawnParticles(w, e.x, e.y, 10, T().accent, 90, 0.8, 2.8);
+      } else if (e.type === 'cell') {
+        SFX.cell();
+        spawnParticles(w, e.x, e.y, 14, T().cell, 95, 0.5, 2.2);
+      } else if (e.type === 'crash') {
+        SFX.crash();
+        PLAY.shake = 15;
+        spawnParticles(w, e.x, e.y, 30, shipColor(e.ship), 190, 0.85, 3.0);
+        spawnParticles(w, e.x, e.y, 14, '#FFFFFF', 130, 0.4, 2.2);
+        SFX.setEngine(0);
+      } else if (e.type === 'fail' && e.reason === 'fuel') {
+        SFX.fuelOut();
+      } else if (e.type === 'clear') {
+        SFX.win();
+      }
+    }
+    w.events.length = 0;
+  },
+
+  /* ── drawing ──────────────────────────────────────────────────────────── */
+  draw: function (dt, time) {
+    var w = PLAY.world;
+    if (!w) return;
+    var theme = T();
+    var rx = w.rect.x, ry = w.rect.y, rw = w.rect.w, rh = w.rect.h;
+
+    CTX.save();
+    if (PLAY.shake > 0.2) {
+      CTX.translate(Math.sin(PLAY.shakeT * 61) * PLAY.shake, Math.cos(PLAY.shakeT * 53) * PLAY.shake);
+    }
+
+    /* the field itself: a faint ledge so the boundary is never a surprise */
+    fillRR(rx - 5, ry - 5, rw + 10, rh + 10, 14, 'rgba(255,255,255,0.035)');
+    strokeRR(rx - 5, ry - 5, rw + 10, rh + 10, 14, rgba(theme.edge, 0.85), 1.4);
+    CTX.save();
+    roundRectPath(rx - 5, ry - 5, rw + 10, rh + 10, 14);
+    CTX.clip();
+    CTX.beginPath();
+    CTX.rect(rx - 5, ry - 5, rw + 10, rh + 10);
+    CTX.clip();
+    drawGrain(rx - 5, ry - 5, rw + 10, rh + 10, 0.07);
+    CTX.restore();
+
+    var i;
+    for (i = 0; i < w.wells.length; i += 1) drawWell(w.wells[i], time);
+
+    for (i = 0; i < w.cells.length; i += 1) {
+      if (!w.cells[i].taken) drawCell(w.cells[i], time);
+    }
+
+    for (i = 0; i < w.gates.length; i += 1) drawGate(w.gates[i], time);
+
+    for (i = 0; i < w.rocks.length; i += 1) drawRock(w.rocks[i]);
+
+    /* tether lines first, so a hull always sits on top of its own beam */
+    if (!PLAY.paused && PLAY.briefT <= 0) {
+      for (i = 0; i < w.ships.length; i += 1) {
+        var sh = w.ships[i];
+        if (!sh.alive || sh.docked) continue;
+        var aim = PLAY.aimFor(i);
+        if (!aim) continue;
+        PLAY.drawTether(sh, aim, i, time);
+      }
+    }
+
+    for (i = 0; i < w.ships.length; i += 1) {
+      var s = w.ships[i];
+      if (!s.alive) continue;
+      PLAY.drawTrail(s, i);
+      if (s.docked) {
+        drawShip(s.x, s.y, -Math.PI / 2, i, { scale: 0.85 });
+      } else {
+        var ang = Math.sqrt(s.vx * s.vx + s.vy * s.vy) > 3 ? Math.atan2(s.vy, s.vx) + Math.PI / 2 : -Math.PI / 2;
+        drawExhaust(s.x, s.y, ang, i, s.ramp, 1);
+        drawShip(s.x, s.y, ang, i, {});
+      }
+    }
+
+    drawParticles(w);
+    CTX.restore();
+
+    PLAY.drawHud(w, time);
+    PLAY.drawHint(w, time);
+    if (PLAY.briefT > 0) PLAY.drawBrief(w);
+    if (PLAY.paused) PLAY.drawPause(w);
+  },
+
+  aimFor: function (i) {
+    var w = PLAY.world;
+    if (!w) return null;
+    var pid = PLAY.assign.shipPointer[i];
+    if (pid === null || pid === undefined) return null;
+    for (var k = 0; k < PLAY.pointers.length; k += 1) {
+      if (PLAY.pointers[k].id === pid) return PLAY.pointers[k];
+    }
+    return null;
+  },
+
+  drawTrail: function (s, i) {
+    var n = s.trail.length;
+    if (n < 2) return;
+    CTX.save();
+    CTX.globalCompositeOperation = 'lighter';
+    CTX.lineCap = 'round';
+    for (var k = n - 1; k > 0; k -= 1) {
+      var a = s.trail[k], b = s.trail[k - 1];
+      var t = 1 - k / n;
+      CTX.globalAlpha = t * t * 0.42;
+      CTX.strokeStyle = shipColor(i);
+      CTX.lineWidth = 0.6 + t * 3.4;
+      CTX.beginPath();
+      CTX.moveTo(a.x, a.y);
+      CTX.lineTo(b.x, b.y);
+      CTX.stroke();
+    }
+    CTX.restore();
+  },
+
+  drawTether: function (sh, aim, i, time) {
+    var dx = aim.x - sh.x, dy = aim.y - sh.y;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len < cfgGet('physics.deadZonePx', 24)) return;
+    CTX.save();
+    CTX.globalCompositeOperation = 'lighter';
+    CTX.beginPath();
+    CTX.moveTo(sh.x, sh.y);
+    CTX.lineTo(aim.x, aim.y);
+    CTX.setLineDash([5, 6]);
+    CTX.lineDashOffset = -time * 26;
+    CTX.strokeStyle = rgba(shipLight(i), 0.55);
+    CTX.lineWidth = 1.6;
+    CTX.stroke();
+    CTX.setLineDash([]);
+    CTX.beginPath();
+    CTX.arc(aim.x, aim.y, 9 + 2.4 * Math.sin(time * 6), 0, TAU);
+    CTX.strokeStyle = rgba(shipLight(i), 0.75);
+    CTX.lineWidth = 1.4;
+    CTX.stroke();
+    CTX.restore();
+  },
+
+  drawHud: function (w, time) {
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var top = LAY.contentTop + 4;
+    var ratio = w.fuelMax > 0 ? Math.max(0, w.fuel / w.fuelMax) : 0;
+    var low = ratio > 0 && ratio <= cfgGet('anim.lowFuelRatio', 0.25);
+    var dead = ratio <= 0;
+
+    /* Row 1: level identity on the left, hull status and the pause control on the
+       right. The pips stop short of the button so nothing ever overlaps it. */
+    TXT(tr('hud.level', { n: w.level }), L + 1, top + 12, {
+      size: 12, align: 'left', color: theme.muted, maxW: 60
+    });
+    TXT(levelName(w.def), L + 56, top + 12, {
+      size: 12.5, align: 'left', color: theme.text, maxW: R - L - 108
+    });
+    for (var i = 0; i < w.ships.length; i += 1) {
+      var px = R - 40 - i * 17;
+      var py = top + 12;
+      var s = w.ships[i];
+      CTX.beginPath();
+      CTX.arc(px, py, 6, 0, TAU);
+      CTX.fillStyle = s.docked ? shipColor(i) : 'rgba(255,255,255,0.10)';
+      CTX.fill();
+      CTX.strokeStyle = rgba(shipLight(i), s.docked ? 0.95 : 0.55);
+      CTX.lineWidth = 1.3;
+      CTX.stroke();
+    }
+    drawRoundButton('pause', R - 15, top + 12, 14, 'II', { size: 11.5 });
+
+    /* Row 2: the fuel bar — the one linear resource, always full width and always
+       in the same place, because comparing two lengths beats comparing two dials. */
+    var barX = L;
+    var barW = R - L;
+    var barY = top + 26;
+    var barH = 13;
+    var pulse = low ? (0.55 + 0.45 * Math.sin(time * 7)) : 1;
+    fillRR(barX, barY, barW, barH, barH / 2, 'rgba(255,255,255,0.10)');
+    if (ratio > 0) {
+      CTX.save();
+      roundRectPath(barX, barY, barW, barH, barH / 2);
+      CTX.clip();
+      var bw = Math.max(barH, barW * ratio);
+      CTX.globalAlpha = pulse;
+      fillRR(barX, barY, bw, barH, barH / 2, vGrad(barX, barY, bw, barH, theme.cell, rgba(theme.cell, 0.7)));
+      CTX.restore();
+    }
+    strokeRR(barX + 0.5, barY + 0.5, barW - 1, barH - 1, barH / 2, rgba(theme.edge, 0.95), 1.1);
+    TXT(tr('hud.fuel'), barX + 8, barY + barH / 2 + 0.5, {
+      size: 9.5, align: 'left', color: 'rgba(255,255,255,0.9)', maxW: 40
+    });
+    if (low && !dead) {
+      TXT(tr('hud.low'), barX + barW / 2, barY + barH / 2 + 0.5, {
+        size: 10, color: '#FFFFFF', alpha: pulse, maxW: barW - 120
+      });
+    }
+    TXT(Math.round(ratio * 100) + '%', barX + barW - 8, barY + barH / 2 + 0.5, {
+      size: 10.5, align: 'right', color: '#FFFFFF', maxW: 44
+    });
+  },
+
+  hintText: function (w) {
+    if (w.t < 9) return levelTeach(w.def);
+    if (w.t < 15) return tr('play.hint.two');
+    return tr('play.hint.soft');
+  },
+
+  drawHint: function (w, time) {
+    /* The brief card already states the rule verbatim, so repeating it underneath
+       for the first second just reads as a duplicate line. */
+    if (PLAY.briefT > 0) return;
+    var y = LAY.contentBottom - cfgGet('arena.hintHeight', 26) / 2;
+    TXT(PLAY.hintText(w), (LAY.contentLeft + LAY.contentRight) / 2, y, {
+      size: 10.5, color: rgba(T().muted, 0.95), maxW: LAY.contentRight - LAY.contentLeft - 8
+    });
+  },
+
+  drawBrief: function (w) {
+    var theme = T();
+    var L = LAY.contentLeft, R = LAY.contentRight;
+    var W = R - L;
+    var p = clamp(1 - PLAY.briefT / cfgGet('anim.briefSec', 1.25), 0, 1);
+    var alpha = Math.min(1, p * 3.2) * Math.min(1, PLAY.briefT / 0.25);
+    var h = 168;
+    var y = (LAY.contentTop + LAY.contentBottom) / 2 - h / 2;
+    CTX.save();
+    CTX.globalAlpha = alpha;
+    CTX.fillStyle = 'rgba(2,6,14,0.55)';
+    CTX.fillRect(-LAY.stageX / LAY.scale, -LAY.stageY / LAY.scale,
+      VIEW.vw / LAY.scale, VIEW.vh / LAY.scale);
+    var pop = easeOutBack(p);
+    CTX.translate((L + R) / 2, y + h / 2);
+    CTX.scale(0.92 + 0.08 * pop, 0.92 + 0.08 * pop);
+    CTX.translate(-(L + R) / 2, -(y + h / 2));
+    drawCard(L, y, W, h, 18, { shadowBlur: 20 });
+    TXT(tr('brief.level', { n: w.level }), (L + R) / 2, y + 26, {
+      size: 12.5, color: theme.muted, letterSpacing: '2px'
+    });
+    TXT(levelName(w.def), (L + R) / 2, y + 52, {
+      size: 24, grad: theme.titleGrad, maxW: W - 40,
+      outline: { color: theme.titleEdge, width: 5 }
+    });
+    paragraph(levelTeach(w.def), (L + R) / 2, y + 68, W - 44, {
+      size: 11.5, color: theme.text, align: 'center', lineHeight: 1.5
+    });
+    var pulse = 0.6 + 0.4 * Math.sin(PLAY.shakeT * 6);
+    TXT(tr('brief.tap'), (L + R) / 2, y + h - 22, {
+      size: 12, color: theme.accent, alpha: pulse, maxW: W - 40, letterSpacing: '1.5px'
+    });
+    CTX.restore();
+  },
+
+  drawPause: function (w) {
+    var theme = T();
+    var L = LAY.contentLeft, R = LAY.contentRight;
+    var W = R - L;
+    var h = 236;
+    var card = drawModalCard(W, h, 0.2);
+    var x = card.x, y = card.y;
+    TXT(tr('play.paused'), x + W / 2, y + 34, {
+      size: 24, grad: theme.titleGrad, maxW: W - 40,
+      outline: { color: theme.titleEdge, width: 5 }
+    });
+    TXT(tr('play.quit.hint'), x + W / 2, y + 60, { size: 11, color: theme.muted, maxW: W - 40 });
+    var bw = W - 44;
+    drawButton(x + 22, y + 78, bw, 48, tr('play.resume'), isPressed('resume'), { size: 18 });
+    HIT('resume', x + 22, y + 78, bw, 48);
+    drawChip(x + 22, y + 134, bw, 40, tr('play.restart'), isPressed('restart'), { size: 15 });
+    HIT('restart', x + 22, y + 134, bw, 40);
+    drawChip(x + 22, y + 180, bw, 40, tr('play.quit'), isPressed('quit'), { size: 15 });
+    HIT('quit', x + 22, y + 180, bw, 40);
+  },
+
+  /* ── input ────────────────────────────────────────────────────────────── */
+  inArena: function (x, y) {
+    var w = PLAY.world;
+    if (!w) return false;
+    return x >= w.rect.x && x <= w.rect.x + w.rect.w && y >= w.rect.y && y <= w.rect.y + w.rect.h;
+  },
+
+  down: function (x, y, pid) {
+    if (PLAY.paused) return;
+    if (PLAY.briefT > 0) return;              /* the brief swallows the first tap */
+    if (PLAY.over) return;
+    if (!PLAY.inArena(x, y)) return;
+    var id = pid === undefined ? 'mouse' : pid;
+    for (var i = 0; i < PLAY.pointers.length; i += 1) {
+      if (PLAY.pointers[i].id === id) { PLAY.pointers[i].x = x; PLAY.pointers[i].y = y; return; }
+    }
+    PLAY.pointers.push({ id: id, x: x, y: y });
+  },
+
+  move: function (x, y, pid) {
+    var id = pid === undefined ? 'mouse' : pid;
+    for (var i = 0; i < PLAY.pointers.length; i += 1) {
+      if (PLAY.pointers[i].id === id) { PLAY.pointers[i].x = x; PLAY.pointers[i].y = y; return; }
+    }
+  },
+
+  up: function (x, y, pid) {
+    if (PLAY.briefT > 0) { PLAY.briefT = 0; return; }
+    var id = pid === undefined ? 'mouse' : pid;
+    for (var i = PLAY.pointers.length - 1; i >= 0; i -= 1) {
+      if (PLAY.pointers[i].id === id) PLAY.pointers.splice(i, 1);
+    }
+  },
+
+  actions: {
+    'pause': function () { PLAY.setPaused(true); },
+    'resume': function () { PLAY.setPaused(false); },
+    'restart': function () { APP.restartLevel(); },
+    'quit': function () { APP.go('home'); }
+  }
+};
+
+
+/* ===== 13-scene-result.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §13  SCENE · RESULT — outcome, rating, breakdown, and the restart entry point
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var RS = {
+  data: null,
+  t: 0,
+  starT: 0,
+  best: false,
+
+  enter: function (opts) {
+    var w = opts.world;
+    var score = levelScore(w);
+    var cleared = w.status === 'clear';
+    var last = w.level >= levelCount();
+    var stats = readStats();
+
+    RS.t = 0;
+    RS.starT = 0;
+    RS.best = false;
+
+    stats.runs = (stats.runs || 0) + 1;
+    if (cleared) {
+      if (w.level > stats.cleared) stats.cleared = w.level;
+      if (score.total > (stats.bestLevel || 0)) stats.bestLevel = score.total;
+      APP.run.score += score.total;
+      APP.run.clearedLevels += 1;
+    }
+    var campaignDone = cleared && last;
+    if (campaignDone) {
+      if (APP.run.score > (stats.best || 0)) { stats.best = APP.run.score; RS.best = true; }
+    }
+    writeStats(stats);
+
+    RS.data = {
+      level: w.level,
+      def: w.def,
+      status: w.status,
+      reason: w.reason,
+      score: score,
+      cleared: cleared,
+      last: last,
+      campaignDone: campaignDone,
+      runScore: APP.run.score,
+      clearedLevels: APP.run.clearedLevels,
+      time: w.t,
+      cells: w.cellsTaken,
+      precision: w.softDocks,
+      ships: w.ships.length,
+      stats: stats
+    };
+
+    if (campaignDone) SFX.win();
+    else if (cleared) SFX.dock(w.softDocks >= w.ships.length);
+    else if (w.reason === 'crash') SFX.crash();
+    else SFX.fuelOut();
+  },
+
+  exit: function () {},
+
+  headline: function () {
+    var d = RS.data;
+    if (d.campaignDone) return tr('result.campaign');
+    if (d.status === 'clear') return tr('result.clear');
+    return tr(d.reason === 'fuel' ? 'result.fuelout' : 'result.crash');
+  },
+
+  reasonText: function () {
+    var d = RS.data;
+    if (d.campaignDone) return tr('result.of', { n: d.clearedLevels, m: levelCount() });
+    if (d.status === 'clear') return tr('result.reason.docked');
+    return tr('result.reason.' + (d.reason === 'fuel' ? 'fuel' : 'crash'));
+  },
+
+  draw: function (dt, time) {
+    RS.t += dt;
+    if (RS.data.cleared) RS.starT += dt;
+    var d = RS.data;
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var W = R - L;
+    var cx = (L + R) / 2;
+    var pop = clamp(RS.t / 0.3, 0, 1);
+
+    /* ── ribbon ── */
+    var ribY = LAY.contentTop + 6;
+    var ribH = 62;
+    CTX.save();
+    CTX.translate(cx, ribY + ribH / 2);
+    var s = 0.9 + 0.1 * easeOutBack(pop);
+    CTX.scale(s, s);
+    CTX.translate(-cx, -(ribY + ribH / 2));
+    var grad = d.cleared
+      ? [theme.btnGrad[0], theme.btnGrad[1]]
+      : [rgba(theme.warn, 1), 'rgba(120,26,20,1)'];
+    withShadow('rgba(0,0,0,0.42)', 18, 0, 6, function () {
+      fillRR(L - 2, ribY, W + 4, ribH, 16, vGrad(L, ribY, W + 4, ribH, grad[0], grad[1]));
+    });
+    roundRectPath(L + 1, ribY + 1, W - 2, ribH * 0.44, 14);
+    CTX.strokeStyle = 'rgba(255,255,255,0.3)';
+    CTX.lineWidth = 1.4;
+    CTX.stroke();
+    TXT(RS.headline(), cx, ribY + ribH / 2 - 5, {
+      size: 25, color: '#FFFFFF', maxW: W - 26, letterSpacing: '1.6px',
+      shadow: { color: 'rgba(0,0,0,0.35)', blur: 4, oy: 2 }
+    });
+    TXT(RS.reasonText(), cx, ribY + ribH / 2 + 18, {
+      size: 11, color: 'rgba(255,255,255,0.92)', maxW: W - 26
+    });
+    CTX.restore();
+
+    var y = ribY + ribH + 12;
+
+    /* ── score panel ── */
+    var panelH = d.cleared ? 156 : 118;
+    drawCard(L, y, W, panelH, 16, { shadowBlur: 10 });
+
+    if (d.cleared) {
+      /* three stars, lit in sequence so a 3-star clear lands like a reward */
+      var stars = d.score.stars;
+      var step = 40;
+      for (var i = 0; i < 3; i += 1) {
+        var on = i < stars && RS.starT > 0.18 * (i + 1);
+        RS.drawStar(cx + (i - 1) * step, y + 28, 15, on, i);
+      }
+    }
+
+    TXT(tr('result.score'), cx, y + (d.cleared ? 56 : 22), { size: 11.5, color: theme.muted });
+    TXT(String(d.score.total), cx, y + (d.cleared ? 84 : 52), {
+      size: d.cleared ? 38 : 34, grad: theme.titleGrad, maxW: W - 40,
+      outline: { color: theme.titleEdge, width: 4.5 }
+    });
+
+    /* breakdown rows */
+    var rows = [];
+    rows.push([tr('result.stat.fuel'), Math.round(d.score.fuelRatio * 100) + '%  (+' + d.score.fuel + ')']);
+    rows.push([tr('result.stat.dock'), d.precision + '/' + d.ships + '  (+' + d.score.dock + ')']);
+    rows.push([tr('result.stat.cells'), String(d.cells) + '  (+' + d.score.cells + ')']);
+    var rowTop = y + (d.cleared ? 104 : 72);
+    for (var k = 0; k < rows.length; k += 1) {
+      var ry = rowTop + k * 16;
+      TXT(rows[k][0], L + 14, ry, { size: 11.5, align: 'left', color: theme.muted, maxW: W * 0.5 });
+      TXT(rows[k][1], R - 14, ry, { size: 12, align: 'right', color: theme.text });
+    }
+    y += panelH + 10;
+
+    /* ── best / run line ── */
+    var line;
+    if (d.campaignDone) {
+      line = RS.best ? tr('result.newbest') : tr('result.best', { n: d.stats.best });
+    } else {
+      line = tr('result.total') + ' ' + d.runScore + '   \u00b7   ' + tr('result.runs', { n: d.stats.runs });
+    }
+    TXT(line, cx, y + 8, {
+      size: 12, color: d.campaignDone && RS.best ? theme.accent : theme.muted, maxW: W
+    });
+    y += 24;
+
+    /* ── actions ── */
+    var btnH = 50;
+    var chipH = 36;
+    var gap = 8;
+    var needed = btnH + gap + chipH + gap + chipH;
+    var top = Math.min(y, LAY.contentBottom - needed);
+
+    if (d.cleared) {
+      if (d.campaignDone) {
+        drawButton(L, top, W, btnH, tr('result.restart'), isPressed('restart'), { size: 18, letterSpacing: '1.5px' });
+        HIT('restart', L, top, W, btnH);
+        drawChip(L, top + btnH + gap, W, chipH, tr('result.home'), isPressed('home'), { size: 14 });
+        HIT('home', L, top + btnH + gap, W, chipH);
+      } else {
+        drawButton(L, top, W, btnH, tr('result.next'), isPressed('next'), { size: 19, letterSpacing: '2px' });
+        HIT('next', L, top, W, btnH);
+        drawChip(L, top + btnH + gap, W, chipH, tr('result.retry'), isPressed('retry'), { size: 14 });
+        HIT('retry', L, top + btnH + gap, W, chipH);
+        drawChip(L, top + btnH + gap + chipH + gap, W, chipH, tr('result.home'), isPressed('home'), { size: 14 });
+        HIT('home', L, top + btnH + gap + chipH + gap, W, chipH);
+      }
+    } else {
+      drawButton(L, top, W, btnH, tr('result.retry'), isPressed('retry'), { size: 20, letterSpacing: '2px' });
+      HIT('retry', L, top, W, btnH);
+      drawChip(L, top + btnH + gap, W, chipH, tr('result.home'), isPressed('home'), { size: 14 });
+      HIT('home', L, top + btnH + gap, W, chipH);
+    }
+  },
+
+  /* Five-pointed star; unlit stars sit as outlines so the goal is visible, and an
+     earned one punches in with an overshoot rather than just appearing. */
+  drawStar: function (cx, cy, r, on, index) {
+    var theme = T();
+    var rr = r;
+    if (on) {
+      var grow = clamp((RS.starT - 0.18 * (index + 1)) * 6, 0, 1);
+      rr = r * (0.55 + 0.45 * easeOutBack(Math.max(0.001, grow)));
+    }
+    CTX.save();
+    CTX.translate(cx, cy);
+    CTX.beginPath();
+    for (var i = 0; i < 10; i += 1) {
+      var ang = -Math.PI / 2 + i * Math.PI / 5;
+      var rad = (i % 2 === 0) ? rr : rr * 0.44;
+      var px = Math.cos(ang) * rad, py = Math.sin(ang) * rad;
+      if (i === 0) CTX.moveTo(px, py); else CTX.lineTo(px, py);
+    }
+    CTX.closePath();
+    if (on) {
+      withShadow(rgba(theme.accent, 0.7), 12, 0, 2, function () {
+        CTX.fillStyle = theme.accent;
+        CTX.fill();
+      });
+      CTX.strokeStyle = 'rgba(255,255,255,0.85)';
+      CTX.lineWidth = 1.4;
+      CTX.stroke();
+    } else {
+      CTX.strokeStyle = rgba(theme.muted, 0.5);
+      CTX.lineWidth = 1.4;
+      CTX.stroke();
+    }
+    CTX.restore();
+  },
+
+  actions: {
+    'retry': function () { APP.restartLevel(); },
+    'next': function () { APP.nextLevel(); },
+    'restart': function () { APP.startCampaign(); },
+    'home': function () { APP.go('home'); }
+  }
+};
+
+
+/* ===== 14-scene-legal.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §14  SCENE · RULES / ABOUT + the first-launch agreement
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* A miniature of the real thing: two hulls tethered to a finger point, a patrolling
+   rock, a well and a partly drained tank. Drawn with the same functions the arena
+   uses, so the diagram can never drift away from how the game actually looks. */
+function drawRulesDiagram(x, y, w, h, time) {
+  var theme = T();
+  var R = { x: x, y: y, w: w, h: h };
+  drawCard(x, y, w, h, 16, { shadowBlur: 8 });
+  CTX.save();
+  roundRectPath(x, y, w, h, 16);
+  CTX.clip();
+  drawGrain(x, y, w, h, 0.07);
+
+  var cy = y + h * 0.56;
+  /* well, bottom left */
+  var well = { x: x + w * 0.20, y: cy + h * 0.20, r: h * 0.34, pull: 40, id: 0 };
+  drawWell(well, time);
+
+  /* two gates along the top */
+  drawGate({ x: x + w * 0.22, y: y + h * 0.24, r: 13, shipId: 0, shape: 'ring', t: time, flash: 0 }, time);
+  drawGate({ x: x + w * 0.78, y: y + h * 0.24, r: 13, shipId: 1, shape: 'tri', t: time, flash: 0 }, time);
+
+  /* a patrolling rock */
+  var tt = (Math.sin(time * 0.8) * 0.5 + 0.5);
+  var rock = {
+    x: x + w * (0.52 + 0.16 * tt), y: cy + h * 0.04, r: 11, rot: time * 0.4,
+    verts: [1.0, 0.9, 1.05, 0.92, 1.0, 0.88, 1.02, 0.94, 1.0]
+  };
+  drawRock(rock);
+
+  /* hull A with its tether to the finger */
+  var ax = x + w * 0.30, ay = cy + h * 0.16;
+  var tx = x + w * 0.44, ty = y + h * 0.60;
+  CTX.save();
+  CTX.globalCompositeOperation = 'lighter';
+  CTX.beginPath();
+  CTX.moveTo(ax, ay);
+  CTX.lineTo(tx, ty);
+  CTX.setLineDash([5, 6]);
+  CTX.lineDashOffset = -time * 26;
+  CTX.strokeStyle = rgba(shipLight(0), 0.6);
+  CTX.lineWidth = 1.6;
+  CTX.stroke();
+  CTX.setLineDash([]);
+  CTX.beginPath();
+  CTX.arc(tx, ty, 8 + 2 * Math.sin(time * 6), 0, TAU);
+  CTX.strokeStyle = rgba(shipLight(0), 0.8);
+  CTX.lineWidth = 1.4;
+  CTX.stroke();
+  CTX.restore();
+  drawExhaust(ax, ay, 2.2, 0, 0.8, 0.9);
+  drawShip(ax, ay, 2.2, 0, {});
+  drawShip(x + w * 0.70, cy + h * 0.10, -0.6, 1, {});
+
+  /* the shared tank, right where the HUD puts it */
+  var bx = x + 14, by = y + h - 18, bw = w - 28, bh = 11;
+  fillRR(bx, by, bw, bh, bh / 2, 'rgba(255,255,255,0.12)');
+  fillRR(bx, by, bw * 0.46, bh, bh / 2, theme.cell);
+  strokeRR(bx + 0.5, by + 0.5, bw - 1, bh - 1, bh / 2, rgba(theme.edge, 0.95), 1);
+  TXT(tr('hud.fuel'), bx + 7, by + bh / 2 + 0.5, {
+    size: 8.5, align: 'left', color: 'rgba(255,255,255,0.9)', maxW: 50
+  });
+  CTX.restore();
+}
+
+var RULES = {
+  draw: function (dt, time) {
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var W = R - L;
+    var y = drawHeader(tr('rules.title'), 'back', time) + 24;
+
+    var dh = 78;
+    drawRulesDiagram(L, y, W, dh, time);
+    y += dh + 12;
+
+    var sections = [
+      [tr('rules.goal.h'), [tr('rules.goal.b')]],
+      [tr('rules.hold.h'), [tr('rules.hold.b')]],
+      [tr('rules.tank.h'), [tr('rules.tank.b')]],
+      [tr('rules.hazard.h'), [tr('rules.hazard.b')]],
+      [tr('rules.dock.h'), [tr('rules.dock.b')]]
+    ];
+    var bodySize = 11.5;
+    var headStep = 20;
+    var maxW = W - 30;
+    var avail = LAY.contentBottom - 62 - y;
+    var total = 0;
+    var i, pi;
+    for (i = 0; i < sections.length; i += 1) {
+      var bodyH = 0;
+      for (pi = 0; pi < sections[i][1].length; pi += 1) {
+        bodyH += paragraphHeight(sections[i][1][pi], maxW, bodySize, '500', 1.45);
+      }
+      total += headStep + bodyH + 7;
+    }
+    total += paragraphHeight(tr('rules.tip'), maxW, 11, '700', 1.45) + 14;
+    /* Shrink rather than clip if the copy runs long in either language. */
+    var scale = total > avail ? Math.max(0.7, avail / total) : 1;
+
+    /* +18 leaves real breathing room under the last line: the descenders of a
+       final glyph otherwise sit right on the card edge. */
+    var cardH = total * scale + 18;
+    drawCard(L, y, W, cardH, 16, { shadowBlur: 8 });
+    var cursor = y + 6;
+    for (i = 0; i < sections.length; i += 1) {
+      drawSpark(L + 15, cursor + 10, 5, theme.primary, 0.95);
+      TXT(sections[i][0], L + 26, cursor + 10, {
+        size: 12.5 * scale, align: 'left', color: theme.text, maxW: maxW
+      });
+      cursor += headStep * scale;
+      for (pi = 0; pi < sections[i][1].length; pi += 1) {
+        cursor += paragraph(sections[i][1][pi], L + 14, cursor, maxW, {
+          size: bodySize * scale, color: theme.muted, lineHeight: 1.45
+        });
+      }
+      cursor += 7 * scale;
+    }
+    cursor += paragraph(tr('rules.tip'), L + 14, cursor, maxW, {
+      size: 11 * scale, weight: '700', color: theme.accent, lineHeight: 1.45
+    });
+    y += cardH + 10;
+
+    var by = Math.min(y, LAY.contentBottom - 46);
+    drawButton(L, by, W, 46, tr('rules.back'), isPressed('back'), { size: 17 });
+    HIT('back', L, by, W, 46);
+  },
+  actions: { 'back': function () { APP.go('home'); } }
+};
+
+var ABOUT = {
+  draw: function (dt, time) {
+    var theme = T();
+    var L = LAY.contentLeft;
+    var R = LAY.contentRight;
+    var W = R - L;
+    var cx = (L + R) / 2;
+    var y = drawHeader(tr('about.title'), 'back', time) + 22;
+
+    /* app icon + store cover, both loaded through window.lib.getAsset */
+    var ih = 66;
+    var icon = assetImage('icon');
+    var poster = assetImage('poster');
+    var pw = poster ? ih * (9 / 16) : 0;
+    var totalW = ih + (poster ? pw + 10 : 0);
+    var ix = cx - totalW / 2;
+    CTX.save();
+    roundRectPath(ix, y, ih, ih, 15);
+    CTX.clip();
+    if (icon) {
+      CTX.drawImage(icon, ix, y, ih, ih);
+    } else {
+      /* procedural stand-in keeps the layout identical when the asset is absent */
+      CTX.fillStyle = vGrad(ix, y, ih, ih, theme.bg[0], theme.bg[1]);
+      CTX.fillRect(ix, y, ih, ih);
+      drawMark(ix + ih / 2, y + ih / 2, ih * 0.9, time);
+    }
+    CTX.restore();
+    strokeRR(ix, y, ih, ih, 15, rgba(theme.edge, 0.95), 1.4);
+    if (poster) {
+      var px = ix + ih + 10;
+      CTX.save();
+      roundRectPath(px, y, pw, ih, 10);
+      CTX.clip();
+      CTX.drawImage(poster, px, y, pw, ih);
+      CTX.restore();
+      strokeRR(px, y, pw, ih, 10, rgba(theme.edge, 0.95), 1.2);
+    }
+
+    var tx = ix + totalW + 12;
+    TXT(tr('game.title'), tx, y + 24, { size: 21, align: 'left', color: theme.text, maxW: R - tx });
+    TXT(tr('game.subtitle'), tx, y + 44, { size: 12, align: 'left', color: theme.muted, maxW: R - tx });
+    TXT(tr('about.version', { v: APP_VERSION }), tx, y + 60, {
+      size: 11, align: 'left', color: theme.muted, maxW: R - tx
+    });
+    y += ih + 16;
+
+    var blocks = [
+      [tr('about.original.h'), tr('about.original.b')],
+      [tr('about.offline.h'), tr('about.offline.b')],
+      [tr('about.save.h'), tr('about.save.b')]
+    ];
+    var bodySize = 11.5;
+    var maxW = W - 30;
+    var avail = LAY.contentBottom - 68 - y;
+    var total = 0;
+    for (var i = 0; i < blocks.length; i += 1) {
+      total += 22 + paragraphHeight(blocks[i][1], maxW, bodySize, '500', 1.45) + 8;
+    }
+    var scale = total > avail ? Math.max(0.7, avail / total) : 1;
+    var cardH = total * scale + 22;
+    drawCard(L, y, W, cardH, 16, { shadowBlur: 8 });
+    var cursor = y + 8;
+    for (var b = 0; b < blocks.length; b += 1) {
+      drawSpark(L + 15, cursor + 11, 5, theme.primary, 0.95);
+      TXT(blocks[b][0], L + 26, cursor + 11, {
+        size: 13 * scale, align: 'left', color: theme.text, maxW: maxW
+      });
+      cursor += 22 * scale;
+      cursor += paragraph(blocks[b][1], L + 14, cursor, maxW, {
+        size: bodySize * scale, color: theme.muted, lineHeight: 1.45
+      });
+      cursor += 8 * scale;
+    }
+    y += cardH + 12;
+
+    var wipeY = Math.min(y, LAY.contentBottom - 46 - 40);
+    drawChip(L, wipeY, W, 34, tr('about.wipe'), isPressed('wipe'), { size: 13 });
+    HIT('wipe', L, wipeY, W, 34);
+    drawButton(L, wipeY + 40, W, 46, tr('about.back'), isPressed('back'), { size: 17 });
+    HIT('back', L, wipeY + 40, W, 46);
+  },
+  actions: {
+    'back': function () { APP.go('home'); },
+    'wipe': function () {
+      STORE.set('stats', null);
+      STORE.set('lang', '');
+      STORE.set('theme', '');
+      _lang = null;
+      _themeId = null;
+      resetDeco();
+      toast(tr('about.wiped'));
+    }
+  }
+};
+
+/* ── first-launch agreement (compliance: modal, explicit consent) ────────── */
+function drawAgreement(dt, time) {
+  var theme = T();
+  var W = Math.min(312, LAY.contentRight - LAY.contentLeft);
+  var body = [tr('agree.body1'), tr('agree.body2'), tr('agree.body3'), tr('agree.body4')];
+  var maxW = W - 32;
+  var size = 11.5;
+  var total = 0;
+  var i;
+  for (i = 0; i < body.length; i += 1) total += paragraphHeight(body[i], maxW, size, '500', 1.5) + 8;
+  var H = 74 + total + 62;
+  var card = drawModalCard(W, H, APP.agreeT);
+  var x = card.x;
+  var y = card.y;
+
+  TXT(tr('agree.title'), x + W / 2, y + 28, { size: 19, color: theme.text, maxW: W - 30 });
+  var rule = CTX.createLinearGradient(x + 24, 0, x + W - 24, 0);
+  rule.addColorStop(0, rgba(theme.primary, 0));
+  rule.addColorStop(0.5, rgba(theme.primary, 0.85));
+  rule.addColorStop(1, rgba(theme.primary, 0));
+  CTX.fillStyle = rule;
+  CTX.fillRect(x + 24, y + 44, W - 48, 1.6);
+
+  var cursor = y + 54;
+  for (i = 0; i < body.length; i += 1) {
+    cursor += paragraph(body[i], x + 16, cursor, maxW, { size: size, color: theme.muted, lineHeight: 1.5 });
+    cursor += 8;
+  }
+  var by = y + H - 54;
+  drawButton(x + 20, by, W - 40, 44, tr('agree.ok'), isPressed('agree'), { size: 18, letterSpacing: '3px' });
+  HIT('agree', x + 20, by, W - 40, 44);
+}
+
+
+/* ===== 15-app.js ===== */
+/* ═══════════════════════════════════════════════════════════════════════════
+   §15  APP — scenes, input routing, main loop, saved progress, boot
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+var APP_VERSION = "1.0.0";
+
+/* ── saved progress (only ever a handful of numbers) ─────────────────────── */
+function readStats() {
+  var s = STORE.get('stats', null);
+  var out = { best: 0, bestLevel: 0, cleared: 0, runs: 0 };
+  if (isObj(s)) {
+    for (var k in out) {
+      if (Object.prototype.hasOwnProperty.call(s, k) && typeof s[k] === 'number' && isFinite(s[k]) && s[k] >= 0) {
+        out[k] = Math.floor(s[k]);
+      }
+    }
+  }
+  /* A stored cleared count can never exceed the levels that exist: if the level
+     list shrinks in a later build, an out-of-range value would unlock nothing
+     and strand the player on the home screen. */
+  var total = levelCount();
+  if (out.cleared > total) out.cleared = total;
+  return out;
+}
+function writeStats(s) { return STORE.set('stats', s); }
+
+/* ── app ────────────────────────────────────────────────────────────────── */
+var SCENES = { home: HOME, play: PLAY, result: RS, rules: RULES, about: ABOUT };
+
+var APP = {
+  scene: 'home',
+  settings: { level: 1 },
+  /* The campaign total is a session concept: it accumulates the levels cleared
+     since the player last started from level 1, and resets with the campaign. */
+  run: { score: 0, clearedLevels: 0 },
+  agree: true,
+  agreeT: 0,
+  time: 0,
+  resultDelay: -1,
+  ready: false,
+  _pendingResult: null,
+
+  init: function () {
+    var agreed = STORE.get('agreed', false);
+    APP.agree = agreed !== true;
+    APP.agreeT = 0;
+    APP.scene = 'home';
+    APP.applyTitle();
+  },
+
+  applyTitle: function () {
+    try { document.title = tr('game.title'); } catch (e) { /* no document */ }
+  },
+
+  go: function (name, opts) {
+    var cur = SCENES[APP.scene];
+    if (cur && cur.exit) cur.exit();
+    APP.scene = name;
+    APP.resultDelay = -1;
+    APP._pendingResult = null;
+    if (name === 'play' && opts) {
+      PLAY.enter(opts);
+    } else if (name === 'result' && opts) {
+      RS.enter(opts);
+    }
+  },
+
+  /* Every attempt is built here, so no ship, rock, cell, particle, counter or
+     seed can survive from the previous one. This is the single reset point the
+     platform spec requires ("restart must fully reinitialise the level"). */
+  newRun: function (index) {
+    var seed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
+    resetDeco();
+    return { index: Number(index) || 1, seed: seed };
+  },
+
+  startLevel: function (index) {
+    APP.settings.level = Number(index) || 1;
+    APP.go('play', APP.newRun(APP.settings.level));
+  },
+
+  restartLevel: function () { APP.startLevel(APP.settings.level); },
+
+  nextLevel: function () {
+    var next = Math.min(levelCount(), APP.settings.level + 1);
+    APP.startLevel(next);
+  },
+
+  startCampaign: function () {
+    APP.run.score = 0;
+    APP.run.clearedLevels = 0;
+    APP.startLevel(1);
+  },
+
+  update: function (dt) {
+    APP.time += dt;
+    if (APP.agree) APP.agreeT += dt;
+    var s = SCENES[APP.scene];
+    if (s && s.update) s.update(dt);
+
+    /* A level is decided -> show the result card once the explosion has landed.
+       The world is read from the play scene, never cached on APP: a restart
+       replaces it, and a stale reference would score the wrong run. */
+    if (APP.scene === 'play' && PLAY.over) {
+      if (APP.resultDelay < 0) {
+        APP.resultDelay = cfgGet('anim.resultDelaySec', 0.7);
+        APP._pendingResult = { world: PLAY.world };
+      } else {
+        APP.resultDelay -= dt;
+        if (APP.resultDelay <= 0 && APP._pendingResult) {
+          var payload = APP._pendingResult;
+          APP._pendingResult = null;
+          APP.go('result', payload);
+        }
+      }
+    }
+  },
+
+  draw: function (dt) {
+    var s = SCENES[APP.scene];
+    if (s && s.draw) s.draw(dt, APP.time);
+    drawToast(dt);
+    if (APP.agree) drawAgreement(dt, APP.time);
+  },
+
+  /* ── input ────────────────────────────────────────────────────────────── */
+  down: function (x, y, pid) {
+    SFX.unlock();
+    PRESS.x = x;
+    PRESS.y = y;
+    PRESS.moved = false;
+    PRESS.id = pickHit(x, y);
+    /* The agreement is modal: while it is open nothing else may receive input. */
+    if (APP.agree) return;
+    var s = SCENES[APP.scene];
+    if (s && s.down) s.down(x, y, pid);
+  },
+
+  move: function (x, y, pid) {
+    if (Math.abs(x - PRESS.x) > 6 || Math.abs(y - PRESS.y) > 6) PRESS.moved = true;
+    var s = SCENES[APP.scene];
+    if (s && s.move) s.move(x, y, pid);
+  },
+
+  up: function (x, y, pid) {
+    if (APP.agree) {
+      if (pickHit(x, y) === 'agree' && !PRESS.moved) {
+        APP.agree = false;
+        STORE.set('agreed', true);
+      }
+      PRESS.id = null;
+      PRESS.moved = false;
+      return;
+    }
+    var s = SCENES[APP.scene];
+    if (s && s.up) {
+      s.up(x, y, pid);
+    }
+    /* Scenes that own a pointer (the arena) get first refusal on the tap; the
+       rest fall through to the registered hit regions. */
+    var id = pickHit(x, y);
+    if (id && id === PRESS.id && !PRESS.moved && s) {
+      if (s.actions && s.actions[id]) s.actions[id]();
+      else handleHomePick(id);
+    }
+    PRESS.id = null;
+    PRESS.moved = false;
+  },
+
+  /* Called when the page goes to the background: the platform spec asks for an
+     automatic pause, and a drifting ship must not be judged while hidden. */
+  onHidden: function () {
+    if (APP.scene === 'play') PLAY.setPaused(true);
+  }
+};
+
+/* ── main loop ──────────────────────────────────────────────────────────── */
+var _last = 0;
+
+function frame(now) {
+  var raw = _last ? now - _last : 1000 / 60;
+  var dt = _last ? clamp(raw / 1000, 0, 0.05) : 1 / 60;
+  _last = now;
+  /* Feed the real elapsed time to the quality policy (dt above is clamped for
+     simulation stability, which would hide a slow device from the sampler). */
+  if (APP.ready) sampleFrame(raw);
+
+  CTX.setTransform(VIEW.dpr, 0, 0, VIEW.dpr, 0, 0);
+  drawBackground(T(), APP.time);
+
+  resetHits();
+  CTX.save();
+  CTX.translate(LAY.stageX, LAY.stageY);
+  CTX.scale(LAY.scale, LAY.scale);
+  APP.update(dt);
+  APP.draw(dt);
+  CTX.restore();
+
+  requestAnimationFrame(frame);
+}
+
+/* ── boot ───────────────────────────────────────────────────────────────── */
+function bindInput() {
+  var canvas = document.getElementById('stage');
+
+  function pt(e) {
+    var rect = canvas.getBoundingClientRect();
+    var src = e;
+    if (e.touches && e.touches.length) src = e.touches[0];
+    else if (e.changedTouches && e.changedTouches.length) src = e.changedTouches[0];
+    return {
+      x: ux((src.clientX || 0) - rect.left),
+      y: uy((src.clientY || 0) - rect.top)
+    };
+  }
+
+  /* Pointer identity is what makes two-thumb control work, so it is carried all
+     the way down to the arena instead of being flattened to a single position. */
+  if (window.PointerEvent) {
+    canvas.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      var p = pt(e);
+      APP.down(p.x, p.y, e.pointerId);
+    }, { passive: false });
+    canvas.addEventListener('pointermove', function (e) {
+      var p = pt(e);
+      APP.move(p.x, p.y, e.pointerId);
+    }, { passive: true });
+    canvas.addEventListener('pointerup', function (e) {
+      var p = pt(e);
+      APP.up(p.x, p.y, e.pointerId);
+    }, { passive: true });
+    canvas.addEventListener('pointercancel', function (e) {
+      APP.up(-1, -1, e.pointerId);
+    }, { passive: true });
+  } else {
+    canvas.addEventListener('touchstart', function (e) {
+      e.preventDefault();
+      var rect = canvas.getBoundingClientRect();
+      for (var i = 0; i < e.changedTouches.length; i += 1) {
+        var t = e.changedTouches[i];
+        APP.down(ux(t.clientX - rect.left), uy(t.clientY - rect.top), t.identifier);
+      }
+    }, { passive: false });
+    canvas.addEventListener('touchmove', function (e) {
+      e.preventDefault();
+      var rect = canvas.getBoundingClientRect();
+      for (var i = 0; i < e.changedTouches.length; i += 1) {
+        var t = e.changedTouches[i];
+        APP.move(ux(t.clientX - rect.left), uy(t.clientY - rect.top), t.identifier);
+      }
+    }, { passive: false });
+    canvas.addEventListener('touchend', function (e) {
+      e.preventDefault();
+      var rect = canvas.getBoundingClientRect();
+      for (var i = 0; i < e.changedTouches.length; i += 1) {
+        var t = e.changedTouches[i];
+        APP.up(ux(t.clientX - rect.left), uy(t.clientY - rect.top), t.identifier);
+      }
+    }, { passive: false });
+    canvas.addEventListener('mousedown', function (e) {
+      var p = pt(e);
+      APP.down(p.x, p.y, 'mouse');
+    });
+    canvas.addEventListener('mousemove', function (e) {
+      var p = pt(e);
+      APP.move(p.x, p.y, 'mouse');
+    });
+    canvas.addEventListener('mouseup', function (e) {
+      var p = pt(e);
+      APP.up(p.x, p.y, 'mouse');
+    });
+  }
+  /* Block the OS-level long-press menu and double-tap zoom inside the play area. */
+  canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+}
+
+function boot() {
+  refreshConfigFromSidecar();
+  relayout();
+  APP.init();
+  loadAssets();
+  bindInput();
+
+  window.addEventListener('resize', function () { relayout(); resetDeco(); });
+  window.addEventListener('orientationchange', function () {
+    setTimeout(function () { relayout(); resetDeco(); }, 120);
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) APP.onHidden();
+  });
+  window.addEventListener('blur', function () { APP.onHidden(); });
+
+  requestAnimationFrame(frame);
+  APP.ready = true;
+}
+
+/* Debug / automation handle. Read-only surface used by the test harness. */
+window.__TWIN__ = {
+  APP: APP, PLAY: PLAY, RS: RS, HOME: HOME,
+  config: CONFIG,
+  assets: ASSETS,
+  layout: LAY,
+  quality: QUALITY,
+  sfx: SFX,
+  hits: HITS,          /* live hit regions, rebuilt every frame (design units) */
+  version: APP_VERSION,
+  api: {
+    buildWorld: buildWorld,
+    stepWorld: stepWorld,
+    assignPointers: assignPointers,
+    autopilotAims: autopilotAims,
+    simulate: simulate,
+    levelScore: levelScore,
+    stateSig: stateSig,
+    validateLevels: validateLevels,
+    arenaRect: arenaRect,
+    levelDef: levelDef,
+    levelCount: levelCount,
+    isUnlocked: isUnlocked,
+    readStats: readStats,
+    writeStats: writeStats,
+    getLang: getLang,
+    setLang: setLang,
+    tr: tr,
+    dict: DICT,
+    langs: LANGS,
+    fallbackLang: FALLBACK_LANG,
+    pickLocale: pickLocale,
+    cfgGet: cfgGet,
+    cfgSet: cfgSet,
+    themeIds: themeIds,
+    getThemeId: getThemeId,
+    setThemeId: setThemeId,
+    themeName: themeName,
+    shipColor: shipColor,
+    shipDark: shipDark,
+    shipLight: shipLight,
+    shipLabel: shipLabel,
+    gateShape: gateShape,
+    levelName: levelName,
+    levelTeach: levelTeach,
+    effectivePixelRatio: effectivePixelRatio,
+    medianOf: medianOf,
+    shouldDowngrade: shouldDowngrade,
+    applyQualityStep: applyQualityStep,
+    spawnParticles: spawnParticles,
+    stepParticles: stepParticles,
+    newRun: function (i) { return APP.newRun(i); },
+    startLevel: function (i) { APP.startLevel(i); },
+    restartLevel: function () { APP.restartLevel(); },
+    nextLevel: function () { APP.nextLevel(); },
+    startCampaign: function () { APP.startCampaign(); },
+    setPaused: function (v) { return PLAY.setPaused(v); }
+  }
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+
+})();
+</script>
+</body>
+</html>
