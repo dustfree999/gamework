@@ -2788,19 +2788,25 @@ function drawRock(rock) {
 }
 
 /** Gravity well: a dark core under breathing concentric rings, plus ripples that
-    travel outward so the pull has a visible direction of travel. */
+    travel outward so the pull has a visible direction of travel. The core's radial
+    gradient is a static sprite (it only ever scales), so a level with two wells does
+    not build four gradients per frame. */
 function drawWell(w, time) {
   var theme = T();
+  var span = w.r * 2.2 + spritePad();
+  var spr = cachedSprite(spriteKey(['well', Math.round(w.r * 10)]), span, function (g, cx, cy) {
+    var core = g.createRadialGradient(cx, cy, 0, cx, cy, w.r);
+    core.addColorStop(0, 'rgba(4,6,16,0.92)');
+    core.addColorStop(0.35, rgba(theme.well, 0.22));
+    core.addColorStop(1, rgba(theme.well, 0));
+    g.beginPath();
+    g.arc(cx, cy, w.r, 0, TAU);
+    g.fillStyle = core;
+    g.fill();
+  });
   CTX.save();
   CTX.translate(w.x, w.y);
-  var core = CTX.createRadialGradient(0, 0, 0, 0, 0, w.r);
-  core.addColorStop(0, 'rgba(4,6,16,0.92)');
-  core.addColorStop(0.35, rgba(theme.well, 0.22));
-  core.addColorStop(1, rgba(theme.well, 0));
-  CTX.beginPath();
-  CTX.arc(0, 0, w.r, 0, TAU);
-  CTX.fillStyle = core;
-  CTX.fill();
+  CTX.drawImage(spr.canvas, -spr.span / 2, -spr.span / 2, spr.span, spr.span);
 
   for (var i = 0; i < 3; i += 1) {
     var breath = 0.86 + 0.09 * Math.sin(time * 1.5 - i * 0.9);
@@ -2989,10 +2995,14 @@ function drawMark(cx, cy, size, t) {
 /* ── background ─────────────────────────────────────────────────────────── */
 var _deco = [];
 var _starFar = null;
+var _bgCache = null;
+var _arenaCache = null;
 
 function resetDeco() {
   _deco = [];
   _starFar = null;
+  _bgCache = null;
+  _arenaCache = null;
   _spriteCache = {};
   _spriteStamp = '';
   _grainPattern = null;
@@ -3041,35 +3051,95 @@ function starFarBitmap() {
   return _starFar;
 }
 
-function drawBackground(t, time) {
-  var theme = T();
-  var g = CTX.createLinearGradient(0, 0, 0, VIEW.vh);
-  g.addColorStop(0, theme.bg[0]);
-  g.addColorStop(1, theme.bg[1]);
-  CTX.fillStyle = g;
-  CTX.fillRect(0, 0, VIEW.vw, VIEW.vh);
+/* Everything in the background that never animates — the base gradient, the two
+   nebulae, the far star field and the arena's paper grain — is composed once into a
+   single viewport-sized bitmap. Rebuilding two full-screen radial gradients and a
+   clipped pattern fill on every frame is the most expensive thing this renderer
+   could do, and none of it changes between frames. Only the near stars still twinkle. */
+/* The baked background holds only soft content (a gradient, two nebulae, small dots,
+   noise), so it does not need the screen's full native density: compositing it at
+   ~1.5x and letting the blit upscale is visually identical and keeps the bitmap small
+   enough for a low-end Android WebView. Anything that must stay crisp — notably the
+   arena border — is stroked live instead of being baked in. */
+var BG_MAX_SCALE = 1.5;
 
+function backgroundBitmap(arena) {
+  var stamp = spriteStamp() + ':' + Math.round(VIEW.vw) + 'x' + Math.round(VIEW.vh) +
+    ':' + Math.round((arena ? arena.w : 0)) + 'x' + Math.round((arena ? arena.h : 0));
+  if (_bgCache && _bgCache.stamp === stamp) return _bgCache;
+
+  var s = Math.max(0.5, Math.min(BG_MAX_SCALE, LAY.scale * VIEW.dpr));
+  var c = document.createElement('canvas');
+  c.width = Math.max(2, Math.ceil(VIEW.vw * s));
+  c.height = Math.max(2, Math.ceil(VIEW.vh * s));
+  var g = c.getContext('2d');
+  /* One transform for the whole bitmap: CSS pixels cover the viewport, so the
+     design-space parts below get a nested stage transform. */
+  g.setTransform(s, 0, 0, s, 0, 0);
+  var theme = T();
+
+  var base = g.createLinearGradient(0, 0, 0, VIEW.vh);
+  base.addColorStop(0, theme.bg[0]);
+  base.addColorStop(1, theme.bg[1]);
+  g.fillStyle = base;
+  g.fillRect(0, 0, VIEW.vw, VIEW.vh);
+
+  g.save();
+  g.translate(LAY.stageX, LAY.stageY);
+  g.scale(LAY.scale, LAY.scale);
+
+  /* two soft nebulae so a large dark field is not perfectly flat */
+  var n1 = g.createRadialGradient(LAY.DW * 0.22, LAY.DH * 0.20, 4, LAY.DW * 0.22, LAY.DH * 0.20, LAY.DW * 0.75);
+  n1.addColorStop(0, rgba(theme.primary, 0.13));
+  n1.addColorStop(1, rgba(theme.primary, 0));
+  g.fillStyle = n1;
+  g.fillRect(0, 0, LAY.DW, LAY.DH);
+  var n2 = g.createRadialGradient(LAY.DW * 0.84, LAY.DH * 0.78, 4, LAY.DW * 0.84, LAY.DH * 0.78, LAY.DW * 0.7);
+  n2.addColorStop(0, rgba(theme.well, 0.11));
+  n2.addColorStop(1, rgba(theme.well, 0));
+  g.fillStyle = n2;
+  g.fillRect(0, 0, LAY.DW, LAY.DH);
+
+  g.drawImage(starFarBitmap().canvas, 0, 0, LAY.DW, LAY.DH);
+
+  /* the arena's paper grain and its faint ledge are static too */
+  if (arena) {
+    var ax = arena.x - 5, ay = arena.y - 5, aw = arena.w + 10, ah = arena.h + 10;
+    roundRectOn(g, ax, ay, aw, ah, 14);
+    g.fillStyle = 'rgba(255,255,255,0.035)';
+    g.fill();
+    var gi = assetImage('grain');
+    if (gi) {
+      try {
+        if (!_grainPattern) _grainPattern = g.createPattern(gi, 'repeat');
+        if (_grainPattern) {
+          g.save();
+          roundRectOn(g, ax, ay, aw, ah, 14);
+          g.clip();
+          g.globalAlpha = 0.07;
+          g.fillStyle = _grainPattern;
+          g.fillRect(ax, ay, aw, ah);
+          g.restore();
+        }
+      } catch (e) { /* pattern unsupported: skip the texture */ }
+    }
+  }
+  g.restore();
+
+  _bgCache = { canvas: c, stamp: stamp };
+  return _bgCache;
+}
+
+function drawBackground(t, time) {
   ensureDeco();
+  var bg = backgroundBitmap(null);
+  CTX.drawImage(bg.canvas, 0, 0, VIEW.vw, VIEW.vh);
+
+  /* only the near stars animate */
   CTX.save();
   CTX.translate(LAY.stageX, LAY.stageY);
   CTX.scale(LAY.scale, LAY.scale);
-
-  /* two soft nebulae so a large dark field is not perfectly flat */
-  var n1 = CTX.createRadialGradient(LAY.DW * 0.22, LAY.DH * 0.20, 4, LAY.DW * 0.22, LAY.DH * 0.20, LAY.DW * 0.75);
-  n1.addColorStop(0, rgba(theme.primary, 0.13));
-  n1.addColorStop(1, rgba(theme.primary, 0));
-  CTX.fillStyle = n1;
-  CTX.fillRect(0, 0, LAY.DW, LAY.DH);
-  var n2 = CTX.createRadialGradient(LAY.DW * 0.84, LAY.DH * 0.78, 4, LAY.DW * 0.84, LAY.DH * 0.78, LAY.DW * 0.7);
-  n2.addColorStop(0, rgba(theme.well, 0.11));
-  n2.addColorStop(1, rgba(theme.well, 0));
-  CTX.fillStyle = n2;
-  CTX.fillRect(0, 0, LAY.DW, LAY.DH);
-
-  var far = starFarBitmap();
-  CTX.drawImage(far.canvas, 0, 0, LAY.DW, LAY.DH);
-
-  /* near stars twinkle and drift a little */
+  var theme = T();
   for (var i = 0; i < _deco.length; i += 1) {
     var d = _deco[i];
     if (d.far) continue;
@@ -3080,6 +3150,29 @@ function drawBackground(t, time) {
     CTX.fillStyle = d.warm ? theme.starB : theme.starA;
     CTX.beginPath();
     CTX.arc(d.x + ox, d.y + oy, d.r, 0, TAU);
+    CTX.fill();
+  }
+  CTX.globalAlpha = 1;
+  CTX.restore();
+}
+
+/** Blit the pre-composed background (with the arena panel and grain baked in). */
+function drawGameBackground(t, time, arena) {
+  ensureDeco();
+  var bg = backgroundBitmap(arena);
+  CTX.drawImage(bg.canvas, 0, 0, VIEW.vw, VIEW.vh);
+  CTX.save();
+  CTX.translate(LAY.stageX, LAY.stageY);
+  CTX.scale(LAY.scale, LAY.scale);
+  var theme = T();
+  for (var i = 0; i < _deco.length; i += 1) {
+    var d = _deco[i];
+    if (d.far) continue;
+    var tw = 0.45 + 0.55 * (Math.sin(time * d.sp + d.ph) * 0.5 + 0.5);
+    CTX.globalAlpha = tw;
+    CTX.fillStyle = d.warm ? theme.starB : theme.starA;
+    CTX.beginPath();
+    CTX.arc(d.x + Math.sin(time * 0.11 + d.ph) * 3.2, d.y + Math.cos(time * 0.09 + d.ph) * 2.4, d.r, 0, TAU);
     CTX.fill();
   }
   CTX.globalAlpha = 1;
@@ -3583,22 +3676,17 @@ var PLAY = {
     var theme = T();
     var rx = w.rect.x, ry = w.rect.y, rw = w.rect.w, rh = w.rect.h;
 
+    /* The field's ledge and grain are baked into the background bitmap, but its border
+       must stay crisp at native density — it is the collision boundary, so it is stroked
+       live rather than upscaled with the soft layers. */
+    strokeRR(rx - 5, ry - 5, rw + 10, rh + 10, 14, rgba(theme.edge, 0.85), 1.4);
+
+    /* Only the moving parts shake: a jolt must never make the player lose track of
+       where the walls are. */
     CTX.save();
     if (PLAY.shake > 0.2) {
       CTX.translate(Math.sin(PLAY.shakeT * 61) * PLAY.shake, Math.cos(PLAY.shakeT * 53) * PLAY.shake);
     }
-
-    /* the field itself: a faint ledge so the boundary is never a surprise */
-    fillRR(rx - 5, ry - 5, rw + 10, rh + 10, 14, 'rgba(255,255,255,0.035)');
-    strokeRR(rx - 5, ry - 5, rw + 10, rh + 10, 14, rgba(theme.edge, 0.85), 1.4);
-    CTX.save();
-    roundRectPath(rx - 5, ry - 5, rw + 10, rh + 10, 14);
-    CTX.clip();
-    CTX.beginPath();
-    CTX.rect(rx - 5, ry - 5, rw + 10, rh + 10);
-    CTX.clip();
-    drawGrain(rx - 5, ry - 5, rw + 10, rh + 10, 0.07);
-    CTX.restore();
 
     var i;
     for (i = 0; i < w.wells.length; i += 1) drawWell(w.wells[i], time);
@@ -3858,12 +3946,15 @@ var PLAY = {
     }
   },
 
+  /* Returns true when the tap was consumed (the brief is modal: it swallows the
+     first tap whole, so skipping it can never also press whatever is underneath). */
   up: function (x, y, pid) {
-    if (PLAY.briefT > 0) { PLAY.briefT = 0; return; }
+    if (PLAY.briefT > 0) { PLAY.briefT = 0; return true; }
     var id = pid === undefined ? 'mouse' : pid;
     for (var i = PLAY.pointers.length - 1; i >= 0; i -= 1) {
       if (PLAY.pointers[i].id === id) PLAY.pointers.splice(i, 1);
     }
+    return false;
   },
 
   actions: {
@@ -4529,13 +4620,12 @@ var APP = {
       return;
     }
     var s = SCENES[APP.scene];
-    if (s && s.up) {
-      s.up(x, y, pid);
-    }
-    /* Scenes that own a pointer (the arena) get first refusal on the tap; the
-       rest fall through to the registered hit regions. */
+    /* A scene may consume the tap outright (the level brief is modal). If it did,
+       the hit regions underneath must not also fire — one tap, one effect. */
+    var consumed = false;
+    if (s && s.up) consumed = s.up(x, y, pid) === true;
     var id = pickHit(x, y);
-    if (id && id === PRESS.id && !PRESS.moved && s) {
+    if (!consumed && id && id === PRESS.id && !PRESS.moved && s) {
       if (s.actions && s.actions[id]) s.actions[id]();
       else handleHomePick(id);
     }
@@ -4562,7 +4652,10 @@ function frame(now) {
   if (APP.ready) sampleFrame(raw);
 
   CTX.setTransform(VIEW.dpr, 0, 0, VIEW.dpr, 0, 0);
-  drawBackground(T(), APP.time);
+  /* One background blit per frame. In the arena the pre-composed bitmap also carries
+     the play field's panel and grain, so the scene below only draws what moves. */
+  drawGameBackground(T(), APP.time,
+    (APP.scene === 'play' && PLAY.world) ? PLAY.world.rect : null);
 
   resetHits();
   CTX.save();
