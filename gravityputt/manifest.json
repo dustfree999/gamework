@@ -1,0 +1,18 @@
+{
+  "id": "gravityputt",
+  "name": "Gravity Putt",
+  "shortDescription": "Golf across a gravity field: one drag to launch, planets bend the shot.",
+  "description": "Mini-golf in a planetary system. Drag back from the ball to aim with a live trajectory preview, release to launch, and let the planets' gravity bend your line around hazards and into the glowing cup. Black holes swallow the ball and cost a stroke, repulsors shove it away, wormholes teleport it across the field. Twelve hand-built holes across three chapters, rated by strokes against par.",
+  "version": "1.0.0",
+  "category": "sports",
+  "languages": ["en", "zh"],
+  "orientation": "portrait",
+  "entry": "index.html",
+  "icon": "icon.png",
+  "cover": {
+    "poster": "cover/poster.jpg"
+  },
+  "themeColor": "#070B1E",
+  "players": { "min": 1, "max": 1, "offline": true },
+  "features": ["single-player", "offline", "level-campaign", "physics", "bilingual"]
+}

@@ -1,0 +1,259 @@
+{
+  "_comment": "Gravity Putt (H5 offline) operational parameters. Single source of truth: build_h5_gravity.py inlines this object into window.gameConfig, so no business value is hardcoded in the game code.",
+  "meta": {
+    "gameId": "gravityputt",
+    "title": { "zh": "星洞高尔夫", "en": "Gravity Putt" },
+    "subtitle": { "zh": "一杆，一星系", "en": "One shot. One galaxy." }
+  },
+  "viewport": {
+    "designWidth": 402,
+    "designHeight": 619,
+    "guardTopPct": 0.05,
+    "guardBottomPct": 0.05,
+    "cornerClearPx": 26,
+    "minTapSizePx": 40,
+    "_maxPixelRatio": "render at the screen's native density so vector edges and text stay crisp; the adaptive block only kicks in if a device cannot hold the frame budget.",
+    "maxPixelRatio": 3,
+    "_adaptiveQuality": "sampleFrames = ring buffer size; minFrames = frames before judging; slowFrameMs = median budget (22ms ~ 45fps); steps = successive caps to fall back to.",
+    "adaptiveQuality": {
+      "enabled": true,
+      "sampleFrames": 60,
+      "minFrames": 90,
+      "checkEvery": 30,
+      "slowFrameMs": 22,
+      "steps": [2, 1.5]
+    }
+  },
+  "locale": {
+    "supported": ["zh", "en"],
+    "fallback": "en",
+    "_followSystem": "false = always start in English and let the player switch; true = sniff the device locale. English remains the fallback either way.",
+    "followSystem": false
+  },
+  "course": {
+    "_comment": "The play field is inset from the safe content box; levels store normalised coordinates (0..1) so a notch or a different aspect never pushes geometry outside the safe area.",
+    "hudHeight": 44,
+    "hintHeight": 26,
+    "levelInsetTop": 6,
+    "levelInsetBottom": 6
+  },
+  "physics": {
+    "_comment": "All motion is integrated from these numbers only; the simulation is deterministic so the rules can be unit-tested and replayed. G and masses are the per-body config of the course itself.",
+    "gravityG": 3200,
+    "softening": 60,
+    "subStepHz": 120,
+    "dragPerSec": 0.7,
+    "maxSpeed": 900,
+    "launchSpeedMax": 900,
+    "launchDragMaxPx": 180,
+    "launchFineGain": 0.35,
+    "launchMinPower": 0.08,
+    "ballRadius": 7,
+    "stopSpeed": 40,
+    "maxFlightSec": 8,
+    "holeRadius": 20,
+    "holeCaptureSpeed": 260,
+    "holeDeflectDeg": 12,
+    "planetRestitution": 0.55,
+    "outOfBoundsPx": 14,
+    "aimBufferPx": 26
+  },
+  "bodies": {
+    "_comment": "mass ranges are per-type defaults a level may override; BH=black hole horizon, well=influence radius factor for the predictor cutoff",
+    "rock": { "m": 1500, "r": 24 },
+    "ice": { "m": 1000, "r": 22 },
+    "giant": { "m": 2600, "r": 32 },
+    "blackhole": { "horizon": 16, "well": 90 },
+    "repulsor": { "m": 1800, "r": 26 },
+    "wormhole": { "r": 18 },
+    "predictorCutoffPx": 70,
+    "orbitSpeedRadPerSec": 1.05
+  },
+  "predictor": {
+    "_comment": "the dotted launch preview uses the SAME simulate() as live play, cut short near any body so the rest of the flight stays a puzzle",
+    "maxSec": 2.2,
+    "dotSpacingPx": 26,
+    "fadeTail": 4
+  },
+  "scoring": {
+    "_comment": "stars: strokes <= par -> 3, par+1 -> 2, within maxStrokes -> 1",
+    "starPar": 3,
+    "starParPlusOne": 2,
+    "holeBonus": 100
+  },
+  "unlocks": {
+    "_comment": "chapter gates measured in total stars collected",
+    "chapter2Stars": 6,
+    "chapter3Stars": 15
+  },
+  "audio": {
+    "enabled": true,
+    "masterVolume": 0.4
+  },
+  "anim": {
+    "briefSec": 1.25,
+    "settleDelaySec": 0.55,
+    "resultDelaySec": 0.75,
+    "trailMax": 14,
+    "particleCap": 220,
+    "aimBlocksInputSec": 0.35,
+    "shakeBlackholeSec": 0.2
+  },
+  "storage": {
+    "prefix": "gravityputt_",
+    "keys": { "lang": "lang", "stats": "stats", "agreed": "agreed" },
+    "maxValueBytes": 262144
+  },
+  "theme": {
+    "_comment": "single palette; chapters tint the field slightly colder -> magenta -> violet via chapterTint",
+    "bg": ["#070B1E", "#101832"],
+    "starA": "#9FC8FF",
+    "starB": "#FFE9B0",
+    "text": "#EAF3FF",
+    "muted": "#8FA6C4",
+    "titleGrad": ["#F2F7FF", "#8FB8FF"],
+    "titleEdge": "#0A1020",
+    "subtitle": "#9CC2FF",
+    "primary": "#5CA8FF",
+    "accent": "#FFC94A",
+    "warn": "#FF5C4D",
+    "btnGrad": ["#5CA8FF", "#2A5FB8"],
+    "btnText": "#04122A",
+    "cardBg": "rgba(13,20,42,0.92)",
+    "hudBg": "rgba(9,14,30,0.72)",
+    "edge": "#2C4570",
+    "rockTint": ["#B98A5E", "#7A5236"],
+    "iceTint": ["#BFE4FF", "#5E9ED8"],
+    "giantTint": ["#E8A15C", "#B56A3A"],
+    "bhCore": "#1A1030",
+    "bhRing": "#FF4FD8",
+    "repulsor": "#B98CFF",
+    "wormA": "#4FE3C1",
+    "wormB": "#FFD166",
+    "hole": "#FFC94A",
+    "ball": "#F5F7FF",
+    "ballEdge": "#9AB4FF",
+    "tint": ["#5CA8FF", "#FF4FD8", "#B98CFF"],
+    "chapterTintAlpha": 0.05
+  },
+  "levels": [
+    {
+      "index": 1, "chapter": 1, "id": "first-curve",
+      "name": { "zh": "初次弯道", "en": "First Curve" },
+      "teach": { "zh": "拖住球向后拉，松手发射。行星的引力会把直线拉成弧线。", "en": "Drag back from the ball and release. The planet's gravity bends a straight line into a curve." },
+      "par": 2, "maxStrokes": 6,
+      "ball": [0.50, 0.86], "hole": [0.50, 0.16],
+      "planets": [ { "kind": "rock", "n": [0.50, 0.50], "r": 26, "m": 1500 } ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 2, "chapter": 1, "id": "twin-wells",
+      "name": { "zh": "双井之间", "en": "Twin Wells" },
+      "teach": { "zh": "两颗行星互相对拉：从两井之间穿过，轨道最直。", "en": "Two planets pull against each other. Thread the middle for the straightest line." },
+      "par": 2, "maxStrokes": 6,
+      "ball": [0.50, 0.86], "hole": [0.50, 0.16],
+      "planets": [ { "kind": "rock", "n": [0.28, 0.50], "r": 24, "m": 1200 }, { "kind": "rock", "n": [0.72, 0.50], "r": 24, "m": 1200 } ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 3, "chapter": 1, "id": "slingshot",
+      "name": { "zh": "引力弹弓", "en": "Slingshot" },
+      "teach": { "zh": "贴着大行星的边缘擦过去，甩尾改向进洞。", "en": "Skim the giant's rim and let the slingshot whip the ball toward the cup." },
+      "par": 2, "maxStrokes": 6,
+      "ball": [0.50, 0.86], "hole": [0.22, 0.16],
+      "planets": [ { "kind": "giant", "n": [0.50, 0.62], "r": 30, "m": 2400 } ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 4, "chapter": 1, "id": "the-channel",
+      "name": { "zh": "三连缝", "en": "The Channel" },
+      "teach": { "zh": "三颗行星排成一条缝：贴缝走线，借一次引力够到洞口。", "en": "Three planets line a channel. Ride the seam and borrow one bend to reach the cup." },
+      "par": 3, "maxStrokes": 7,
+      "ball": [0.18, 0.86], "hole": [0.80, 0.14],
+      "planets": [ { "kind": "rock", "n": [0.18, 0.60], "r": 22, "m": 1400 }, { "kind": "ice", "n": [0.50, 0.44], "r": 22, "m": 1100 }, { "kind": "rock", "n": [0.80, 0.30], "r": 22, "m": 1400 } ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 5, "chapter": 2, "id": "orbit-dance",
+      "name": { "zh": "轨道之舞", "en": "Orbit Dance" },
+      "teach": { "zh": "行星在动：看准相位再出手，早一秒晚一秒都进不去。", "en": "The planet orbits. Time the phase — a second early or late misses the cup." },
+      "par": 2, "maxStrokes": 6,
+      "ball": [0.50, 0.86], "hole": [0.68, 0.13],
+      "planets": [ { "kind": "rock", "n": [0.50, 0.46], "r": 22, "m": 1500, "orbit": { "cx": 0.44, "cy": 0.44, "radius": 0.26, "period": 6, "phase": 0 } } ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 6, "chapter": 2, "id": "event-horizon",
+      "name": { "zh": "视界线", "en": "Event Horizon" },
+      "teach": { "zh": "黑洞吞球加一杆。让它只替你弯道，别送球进去。", "en": "A black hole swallows the ball and costs a stroke. Use its pull, never its mouth." },
+      "par": 3, "maxStrokes": 7,
+      "ball": [0.18, 0.86], "hole": [0.82, 0.16],
+      "planets": [ { "kind": "blackhole", "n": [0.50, 0.48] }, { "kind": "rock", "n": [0.16, 0.44], "r": 24, "m": 1600 } ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 7, "chapter": 2, "id": "conveyor",
+      "name": { "zh": "传送带", "en": "Conveyor" },
+      "teach": { "zh": "两颗行星同轨对转，中间是一扇会动的门。", "en": "Two planets share one orbit, opposite phases — a gate that moves." },
+      "par": 3, "maxStrokes": 7,
+      "ball": [0.50, 0.86], "hole": [0.50, 0.14],
+      "planets": [
+        { "kind": "rock", "n": [0.76, 0.46], "r": 20, "m": 1300, "orbit": { "cx": 0.50, "cy": 0.46, "radius": 0.20, "period": 4.5, "phase": 0 } },
+        { "kind": "rock", "n": [0.24, 0.46], "r": 20, "m": 1300, "orbit": { "cx": 0.50, "cy": 0.46, "radius": 0.20, "period": 4.5, "phase": 0.5 } }
+      ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 8, "chapter": 2, "id": "minefield",
+      "name": { "zh": "雷区绕行", "en": "Minefield" },
+      "teach": { "zh": "黑洞居中，两侧窄缝：规划一条既借力又不被吞的绕行线。", "en": "A black hole dead centre, two narrow lanes: plan a curve that borrows pull without being eaten." },
+      "par": 3, "maxStrokes": 8,
+      "ball": [0.76, 0.86], "hole": [0.24, 0.16],
+      "planets": [ { "kind": "blackhole", "n": [0.50, 0.52] }, { "kind": "rock", "n": [0.18, 0.34], "r": 22, "m": 1500 }, { "kind": "ice", "n": [0.82, 0.36], "r": 22, "m": 1100 } ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 9, "chapter": 3, "id": "warp-intro",
+      "name": { "zh": "虫洞初见", "en": "Warp Intro" },
+      "teach": { "zh": "气巨挡死了直线：把球打进入口虫洞，从出口接着飞。", "en": "The giant blocks the straight line. Send the ball through the entrance wormhole and continue from the exit." },
+      "par": 2, "maxStrokes": 6,
+      "ball": [0.50, 0.86], "hole": [0.85, 0.26],
+      "planets": [ { "kind": "giant", "n": [0.50, 0.50], "r": 34, "m": 2800 } ],
+      "hazards": [],
+      "gates": [ { "a": [0.14, 0.78], "b": [0.86, 0.44] } ]
+    },
+    {
+      "index": 10, "chapter": 3, "id": "repulsor-wall",
+      "name": { "zh": "斥力壁垒", "en": "Repulsor Wall" },
+      "teach": { "zh": "反斥体把球推开：先撞墙借推力，再让岩石把你弯回来。", "en": "The repulsor pushes you away. Bank off its push, then let the rock curve you back." },
+      "par": 3, "maxStrokes": 7,
+      "ball": [0.50, 0.86], "hole": [0.50, 0.14],
+      "planets": [ { "kind": "repulsor", "n": [0.50, 0.52], "r": 26, "m": 1800 }, { "kind": "rock", "n": [0.20, 0.40], "r": 24, "m": 1600 } ],
+      "hazards": [], "gates": []
+    },
+    {
+      "index": 11, "chapter": 3, "id": "double-warp",
+      "name": { "zh": "双重传送", "en": "Double Warp" },
+      "teach": { "zh": "两对虫洞加一个黑洞：规划传送链，别在最后一跳被吞。", "en": "Two wormhole pairs and a black hole: chain the warps, but survive the last hop." },
+      "par": 3, "maxStrokes": 7,
+      "ball": [0.50, 0.86], "hole": [0.14, 0.22],
+      "planets": [ { "kind": "blackhole", "n": [0.50, 0.56] } ],
+      "hazards": [],
+      "gates": [ { "a": [0.12, 0.64], "b": [0.88, 0.52] }, { "a": [0.88, 0.88], "b": [0.16, 0.36] } ]
+    },
+    {
+      "index": 12, "chapter": 3, "id": "the-gauntlet",
+      "name": { "zh": "毕业考", "en": "The Gauntlet" },
+      "teach": { "zh": "轨道岩、黑洞、反斥体、虫洞同场。用上你学过的一切。", "en": "Orbiting rock, black hole, repulsor and a wormhole pair. Use everything you have learned." },
+      "par": 4, "maxStrokes": 9,
+      "ball": [0.50, 0.90], "hole": [0.50, 0.12],
+      "planets": [
+        { "kind": "rock", "n": [0.86, 0.46], "r": 22, "m": 1500, "orbit": { "cx": 0.68, "cy": 0.46, "radius": 0.26, "period": 5, "phase": 0.25 } },
+        { "kind": "blackhole", "n": [0.22, 0.32] },
+        { "kind": "repulsor", "n": [0.80, 0.30], "r": 22, "m": 1500 }
+      ],
+      "hazards": [],
+      "gates": [ { "a": [0.86, 0.84], "b": [0.14, 0.14] } ]
+    }
+  ]
+}

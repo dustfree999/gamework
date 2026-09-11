@@ -1,0 +1,80 @@
+{
+  "_comment": "Resource manifest for Gravity Putt (H5 offline package). 'url' is the shipped relative path, or null when the item is generated procedurally at runtime and therefore has no file. Every id below is requested at boot through window.lib.getAsset(assetId), per the platform spec.",
+  "assets": [
+    {
+      "id": "icon",
+      "url": "icon.png",
+      "type": "image",
+      "subtype": "icon",
+      "aspect_ratio": "1:1",
+      "size": "512x512",
+      "prompt": "App icon: a white golf ball mid-flight over a deep navy starfield, its curved trail bending around a small amber planet toward a glowing gold cup ring; bold flat vector shapes with a thin light rim, no text."
+    },
+    {
+      "id": "poster",
+      "url": "cover/poster.jpg",
+      "type": "image",
+      "subtype": "cover",
+      "aspect_ratio": "9:16",
+      "size": "720x1280",
+      "prompt": "Store cover art, portrait 9:16: a white ball on a long curved dotted trajectory weaving between a rocky planet, a magenta black hole and a teal wormhole ring, ending at a glowing gold cup at the top of a dark blue starfield; cinematic but flat-shaded, high contrast, no text."
+    },
+    {
+      "id": "grain",
+      "url": "assets/grain.png",
+      "type": "image",
+      "subtype": "texture",
+      "aspect_ratio": "1:1",
+      "size": "128x128",
+      "prompt": "Seamless tileable monochrome paper-grain noise, very low contrast, used as an 8 percent overlay to stop large dark gradients from banding."
+    },
+    {
+      "id": "planet_set",
+      "url": null,
+      "type": "image",
+      "subtype": "sprite-sheet",
+      "aspect_ratio": "1:1",
+      "prompt": "Planet portraits: a cratered amber-brown rocky world, a pale blue ice world with a bright arc highlight, and a banded orange gas giant. Generated procedurally on canvas instead of shipped as a file."
+    },
+    {
+      "id": "hole_skin",
+      "url": null,
+      "type": "image",
+      "subtype": "effect",
+      "aspect_ratio": "1:1",
+      "prompt": "The golf cup: a double gold ring with an inward-swirling starfield interior and a soft pulsing halo. Drawn procedurally as vector strokes."
+    },
+    {
+      "id": "fx_warp",
+      "url": null,
+      "type": "animation",
+      "subtype": "particle",
+      "aspect_ratio": "1:1",
+      "prompt": "Wormhole transit flash: a teal spiral collapsing inward at the entrance ring and a matching gold spiral blooming at the exit ring."
+    },
+    {
+      "id": "sfx_launch",
+      "url": null,
+      "type": "audio",
+      "subtype": "sfx",
+      "aspect_ratio": "n/a",
+      "prompt": "Launch: a rising triangle chirp with a short high-passed noise whoosh. Synthesised live with Web Audio."
+    },
+    {
+      "id": "sfx_hole",
+      "url": null,
+      "type": "audio",
+      "subtype": "sfx",
+      "aspect_ratio": "n/a",
+      "prompt": "Sink: a rising major triad arpeggio in triangle waves with a bright shimmer overtone."
+    },
+    {
+      "id": "sfx_swallow",
+      "url": null,
+      "type": "audio",
+      "subtype": "sfx",
+      "aspect_ratio": "n/a",
+      "prompt": "Black hole swallow: a falling sawtooth from 220 Hz to 60 Hz over 0.7 s layered with a closing low-passed noise."
+    }
+  ]
+}
