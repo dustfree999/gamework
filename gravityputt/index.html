@@ -1177,6 +1177,10 @@ var DICT = {
   'play.restart': { zh: '重打本洞', en: 'Restart hole' },
   'play.quit': { zh: '退出到选洞', en: 'Quit to holes' },
   'play.quit.hint': { zh: '本洞杆数不会保存', en: 'Strokes on this hole will not be saved' },
+  'play.leave.title': { zh: '离开这一洞？', en: 'Leave this hole?' },
+  'play.leave.hint': { zh: '本洞进度不会保存，星星也不会记录', en: 'Progress on this hole will not be saved, and no stars are recorded' },
+  'play.leave.confirm': { zh: '退出到选洞', en: 'LEAVE TO HOLES' },
+  'play.leave.cancel': { zh: '继续打这一洞', en: 'Keep playing' },
 
   'brief.hole': { zh: '第 {n} 洞', en: 'HOLE {n}' },
   'brief.par': { zh: '标准杆 {n} · 上限 {m} 杆', en: 'Par {n} - {m} stroke limit' },
@@ -3339,6 +3343,7 @@ var PLAY = {
   world: null,
   briefT: 0,
   paused: false,
+  leaveAsk: false,       /* the "leave this hole?" confirm is open */
   shake: 0,
   shakeT: 0,
   over: false,
@@ -3353,6 +3358,7 @@ var PLAY = {
     PLAY.world = buildWorld(opts.index, courseRect());
     PLAY.briefT = cfgGet('anim.briefSec', 1.25);
     PLAY.paused = false;
+    PLAY.leaveAsk = false;
     PLAY.shake = 0;
     PLAY.shakeT = 0;
     PLAY.over = false;
@@ -3368,6 +3374,7 @@ var PLAY = {
     SFX.setPad(false);
     PLAY.drag = null;
     PLAY.predictor = null;
+    PLAY.leaveAsk = false;
   },
 
   setPaused: function (on) {
@@ -3546,6 +3553,7 @@ var PLAY = {
     PLAY.drawHint(w, time);
     if (PLAY.briefT > 0) PLAY.drawBrief(w);
     if (PLAY.paused) PLAY.drawPause(w);
+    if (PLAY.leaveAsk) PLAY.drawLeave(w);
   },
 
   drawCourse: function () { /* border + wash already handled; kept as a hook */ },
@@ -3582,14 +3590,26 @@ var PLAY = {
       size: 12.5, align: 'left', color: theme.text, maxW: R - L - 150
     });
 
-    var parX = R - 88;
-    TXT(tr('hud.par'), parX, top + 6, { size: 9.5, align: 'left', color: theme.muted, maxW: 30 });
-    TXT(String(w.def.par), parX + 22, top + 6, { size: 13, align: 'left', color: theme.accent, weight: '800' });
-    TXT(tr('hud.strokes'), parX, top + 20, { size: 9.5, align: 'left', color: theme.muted, maxW: 30 });
+    /* PAR / STROKES read as label-on-the-left, value-on-the-right pairs: the
+       label is left aligned at a fixed column and the value is right aligned to
+       that column's edge, so a longer label (STROKES vs PAR) can never have the
+       number drawn on top of it. */
+    var statRight = R - 76;          /* clears the back + pause buttons */
+    var statW = 54;
+    var statX = statRight - statW;
+    TXT(tr('hud.par'), statX, top + 6, { size: 9.5, align: 'left', color: theme.muted, maxW: statW - 16 });
+    TXT(String(w.def.par), statRight, top + 6, {
+      size: 13, align: 'right', color: theme.accent, weight: '800'
+    });
+    TXT(tr('hud.strokes'), statX, top + 20, { size: 9.5, align: 'left', color: theme.muted, maxW: statW - 16 });
     var strokeCol = w.strokes > w.def.par ? theme.warn : theme.text;
-    TXT(String(w.strokes), parX + 22, top + 20, { size: 13, align: 'left', color: strokeCol, weight: '800' });
+    TXT(String(w.strokes), statRight, top + 20, {
+      size: 13, align: 'right', color: strokeCol, weight: '800'
+    });
 
     drawRoundButton('pause', R - 15, top + 11, 14, 'II', { size: 11.5 });
+    /* back to hole select, with a confirm step so a stray tap cannot cost the hole */
+    drawRoundButton('leave', R - 53, top + 11, 14, '\u2039', { size: 19 });
   },
 
   hintText: function (w) {
@@ -3665,6 +3685,27 @@ var PLAY = {
     HIT('quit', x + 22, y + 180, bw, 40);
   },
 
+  /* Leaving mid-hole is confirmed first: the ball may be mid-flight and the
+     hole's strokes are not saved, so a stray tap must not end the attempt. */
+  drawLeave: function (w) {
+    var theme = THEME;
+    var L = LAY.contentLeft, R = LAY.contentRight;
+    var W = R - L;
+    var h = 190;
+    var card = drawModalCard(W, h, 0.2);
+    var x = card.x, y = card.y;
+    TXT(tr('play.leave.title'), x + W / 2, y + 32, {
+      size: 21, grad: theme.titleGrad, maxW: W - 40,
+      outline: { color: theme.titleEdge, width: 5 }
+    });
+    TXT(tr('play.leave.hint'), x + W / 2, y + 58, { size: 11, color: theme.muted, maxW: W - 44 });
+    var bw = W - 44;
+    drawButton(x + 22, y + 76, bw, 46, tr('play.leave.confirm'), isPressed('leaveYes'), { size: 17 });
+    HIT('leaveYes', x + 22, y + 76, bw, 46);
+    drawChip(x + 22, y + 130, bw, 40, tr('play.leave.cancel'), isPressed('leaveNo'), { size: 15 });
+    HIT('leaveNo', x + 22, y + 130, bw, 40);
+  },
+
   /* ── input ────────────────────────────────────────────────────────────── */
   inCourse: function (x, y) {
     var w = PLAY.world;
@@ -3677,6 +3718,7 @@ var PLAY = {
 
   down: function (x, y, pid) {
     if (PLAY.paused) return;
+    if (PLAY.leaveAsk) return;               /* the confirm modal owns input */
     if (PLAY.briefT > 0) return;              /* the brief swallows the first tap */
     if (PLAY.over) return;
     if (PLAY.world.status !== 'aim') return;
@@ -3741,7 +3783,11 @@ var PLAY = {
     'pause': function () { PLAY.setPaused(true); },
     'resume': function () { PLAY.setPaused(false); },
     'restart': function () { APP.restartHole(); },
-    'quit': function () { APP.go('home'); }
+    'quit': function () { APP.go('home'); },
+    /* the in-play back affordance and its confirm pair */
+    'leave': function () { PLAY.leaveAsk = true; PLAY.drag = null; PLAY.predictor = null; },
+    'leaveNo': function () { PLAY.leaveAsk = false; },
+    'leaveYes': function () { PLAY.leaveAsk = false; APP.go('home'); }
   }
 };
 
@@ -4495,7 +4541,7 @@ function drawAgreement(dt, time) {
    §13  APP — scenes, input routing, main loop, saved progress, boot
    ═══════════════════════════════════════════════════════════════════════════ */
 
-var APP_VERSION = "1.0.0";
+var APP_VERSION = "1.0.1";
 
 /* ── saved progress (only ever a handful of numbers) ─────────────────────── */
 function readStats() {
